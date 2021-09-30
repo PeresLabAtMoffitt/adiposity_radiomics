@@ -1,0 +1,105 @@
+---
+title: "Adiposity Radiomics"
+author: "Christelle Colin-Leitzinger"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+.figure {
+   margin-top: 25px;
+   <!-- margin-bottom: 100px; -->
+}
+
+table {
+    margin-top: 10px;
+    margin-bottom: 25px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      # fig.width = 7, fig.height = 5, 
+                      fig.align='center'#, fig.show='hold'
+                      )
+options(gtsummary.print_engine = "gt")
+options(gtsummary.as_gt.addl_cmds = "gt::tab_options(table.font.size = 14, data_row.padding = gt::px(1))")
+```
+
+```{r library}
+library(tidyverse)
+library(data.table)
+library(gtsummary)
+# library(survival)
+# library(survminer)
+```
+
+```{r load test-retest}
+path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics", "CTbased adiposity")
+
+adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds"))
+```
+
+<br>
+
+# Data summary
+## Table 1. Distribution of patient characteristics overall
+
+```{r}
+adipose_data %>% 
+  select(age_at_diagnosis, year_of_diagnosis, raceeth, treatment_type, 
+         debulking_status, tnm_cs_mixed_group_stage, ecog_pretrt, 
+         preDx_comorbidities, preDx_hypertension, preDx_diabetes_mellitus, 
+         preDx_hypercholesterolemia, preDx_cardiac_conditions, 
+         preDx_chronic_kidney_disease, 
+         vital_new, os_time, 
+         has_the_patient_recurred, recurrence_time) %>% 
+  
+  tbl_summary(
+    type = list(year_of_diagnosis ~ "categorical", 
+                          all_dichotomous() ~ "categorical"), 
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+    ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+## Table 1. CT-based measures of adiposity
+
+```{r}
+adipose_data %>% 
+  select("thickness", "muscle_area_cm2", "IMATarea_cm2",
+         "VAT_area_cm2", "SAT_area_cm2", "muscle_mean_HU",                    
+         "IMAT_mean_HU", "VAT_mean_HU", "SAT_mean_HU",                       
+         "muscle_HU_SD", "IMAT_HU_SD", "VAT_HU_SD",                         
+         "SAT_HU_SD", "VS_ratio", "total_fat_area") %>% 
+  
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+
+
+
+
+
+
+
+
