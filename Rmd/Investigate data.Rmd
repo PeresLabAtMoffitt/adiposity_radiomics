@@ -77,16 +77,19 @@ adipose_data %>%
   modify_footnote(update = everything() ~ NA)
 ```
 
-## Table 1. CT-based measures of adiposity
+## Table 2. CT-based measures of adiposity
 
 ```{r}
 adipose_data %>% 
-  select("thickness", "muscle_area_cm2", "IMATarea_cm2",
-         "VAT_area_cm2", "SAT_area_cm2", "muscle_mean_HU",                    
-         "IMAT_mean_HU", "VAT_mean_HU", "SAT_mean_HU",                       
-         "muscle_HU_SD", "IMAT_HU_SD", "VAT_HU_SD",                         
-         "SAT_HU_SD", "VS_ratio", "total_fat_area") %>% 
-  
+  select("thickness", "muscle_area_cm2", muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu, vat_mean_hu, sat_mean_hu,                       
+         muscle_hu_sd, imat_hu_sd, vat_hu_sd,                         
+         sat_hu_sd, v_s_ratio, 
+         "total_fat_area", total_fat_area_ind) %>% 
   tbl_summary(
             statistic=list(all_continuous() ~ "{mean} ({sd})"), 
             digits = all_continuous() ~ 1
@@ -95,6 +98,41 @@ adipose_data %>%
   modify_footnote(update = everything() ~ NA)
 ```
 
+```{r}
+adipose_data %>% 
+  select(mrn, bmi_cat,
+         "muscle_area_cm2", muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         "total_fat_area", total_fat_area_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu,
+         muscle_hu_sd, v_s_ratio) %>% 
+  pivot_longer(-c(mrn, bmi_cat)) %>% 
+  ggplot(aes(x= name, y= value, color = bmi_cat))+
+  geom_boxplot()+
+  theme_minimal()+
+  coord_flip()
+
+adipose_data %>% 
+  select(mrn, bmi_cat,
+         "muscle_area_cm2", muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         "total_fat_area", total_fat_area_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu,
+         muscle_hu_sd, v_s_ratio) %>% 
+  pivot_longer(-c(mrn, bmi_cat)) %>% 
+  ggplot(aes(x= bmi_cat, y= value, color = bmi_cat))+
+  geom_boxplot()+
+  theme_minimal()+
+  coord_flip()+
+  # facet_grid(cols = vars(name), scales = "free")
+  facet_wrap(.~ name, scales = "free")
+```
 
 
 
