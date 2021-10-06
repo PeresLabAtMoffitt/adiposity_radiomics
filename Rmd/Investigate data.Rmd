@@ -42,8 +42,8 @@ options(gtsummary.as_gt.addl_cmds = "gt::tab_options(table.font.size = 14, data_
 library(tidyverse)
 library(data.table)
 library(gtsummary)
-# library(survival)
-# library(survminer)
+library(survival)
+library(survminer)
 ```
 
 ```{r load test-retest}
@@ -134,9 +134,121 @@ adipose_data %>%
   facet_wrap(.~ name, scales = "free")
 ```
 
+## KM
 
+```{r}
+mysurv <- Surv(adipose_data$recurrence_time, event = adipose_data$rec_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "Recurrence Analysis",
+           font.main = c(24, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "bold", "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
 
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(nrow = 3))
+```
 
+```{r}
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                            raceeth, age_at_diagnosis, tnm_cs_mixed_group_stage, treatment_type,
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <- 
+  coxph(Surv(time = adipose_data$recurrence_time,
+             event = adipose_data$rec_event) ~ raceeth + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + bmi_cat, data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+```{r}
+mysurv <- Surv(adipose_data$os_time, event = adipose_data$os_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "OS Analysis",
+           font.main = c(24, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "bold", "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(nrow = 3))
+```
+
+```{r}
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                            raceeth, age_at_diagnosis, tnm_cs_mixed_group_stage, treatment_type,
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <- 
+  coxph(Surv(time = adipose_data$os_time,
+             event = adipose_data$os_event) ~ raceeth + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + bmi_cat, data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
+```{r}
+adipose_data %>% select(rec_event, recurrence_time,
+                            "muscle_area_cm2", muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         "total_fat_area", total_fat_area_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu,
+         muscle_hu_sd, v_s_ratio) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+adipose_data %>% select(os_event, os_time,
+                            "muscle_area_cm2", muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         "total_fat_area", total_fat_area_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu,
+         muscle_hu_sd, v_s_ratio) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+```
 
 
 
