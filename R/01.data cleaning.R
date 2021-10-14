@@ -39,8 +39,12 @@ adipose_data <- left_join(radiomics, clinical_data,
     bmi >= 30                   ~ "Obese"
   )) %>%
   mutate(bmi_cat = factor(bmi_cat, levels = c("Underweight and normal weight", "Overweight", "Obese"))) %>% 
-  mutate(tnm = factor(tnm, levels = c("Underweight and normal weight", "Overweight", "Obese"))) %>% 
-  mutate(weight_date = as.Date(weight_date, format = "%m/%d/%Y"))
+  mutate(tnm_cs_mixed_group_stage = factor(tnm_cs_mixed_group_stage)) %>% 
+  mutate(weight_date = as.Date(weight_date, format = "%m/%d/%Y")) %>% 
+  mutate(raceeth1 = case_when(
+    raceeth == "White Non-Hispanic"        ~ "NHWhite",
+    TRUE                                   ~ "Others"
+  ))
 
 adipose_data %>% nrow()
 
