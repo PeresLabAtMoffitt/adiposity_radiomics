@@ -1,0 +1,2035 @@
+---
+title: "Adiposity Radiomics Upfront Neoadjuvant patients"
+author: "Christelle Colin-Leitzinger"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+
+.figure {
+   margin-top: 25px;
+   margin-bottom: 100px;
+}
+
+table {
+    margin-top: 10px;
+    margin-bottom: 25px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.align='center'
+                      )
+options(gtsummary.print_engine = "gt")
+options(gtsummary.as_gt.addl_cmds = "gt::tab_options(table.font.size = 14, data_row.padding = gt::px(1))")
+```
+
+```{r library}
+library(tidyverse)
+library(mclust)
+library(data.table)
+library(gtsummary)
+library(survival)
+library(survminer)
+```
+
+```{r load test-retest}
+path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics", "CTbased adiposity")
+
+adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds")) %>% 
+  filter(!is.na(tnm_cs_mixed_group_stage)) %>% 
+  filter(treatment_type == "Upfront Neoadjuvant")
+```
+
+<br>
+
+Note: I excluded the patient noted in "should exclude" variable.  
+Also the patient with missing TNM was removed.  
+
+<br>
+
+***
+
+# Data summary
+## Table 1. Patient characteristics overall
+
+```{r}
+adipose_data %>% 
+  select(age_at_diagnosis, year_of_diagnosis, raceeth, raceeth1,
+         debulking_status, tnm_cs_mixed_group_stage, ecog_pretrt, 
+         preDx_comorbidities, preDx_hypertension, preDx_diabetes_mellitus, 
+         preDx_hypercholesterolemia, preDx_cardiac_conditions, 
+         preDx_chronic_kidney_disease, 
+         ascites,
+         vital_new, os_time, 
+         has_the_patient_recurred, recurrence_time) %>% 
+  
+  tbl_summary(
+    type = list(year_of_diagnosis ~ "categorical", 
+                          all_dichotomous() ~ "categorical"), 
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+    ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+## Table 2. CT-based measures of adiposity
+
+```{r}
+adipose_data %>% 
+  select(thickness, "muscle_area_cm2", muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu, vat_mean_hu, sat_mean_hu,                       
+         muscle_hu_sd, imat_hu_sd, vat_hu_sd,                         
+         sat_hu_sd, v_s_ratio, 
+         total_fat_area, total_fat_area_ind) %>% 
+  tbl_summary(
+    type = list(thickness ~ "continuous"),
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+```{r, fig.width= 12, fig.height= 12}
+# adipose_data %>% 
+#   select(mrn, bmi_cat,
+#          "muscle_area_cm2", muscle_area_cm2_ind,
+#          imat_area_cm2, imat_area_cm2_ind,
+#          vat_area_cm2, vat_area_cm2_ind,
+#          sat_area_cm2, sat_area_cm2_ind,
+#          "total_fat_area", total_fat_area_ind,
+#          muscle_mean_hu,                    
+#          imat_mean_hu,
+#          muscle_hu_sd, v_s_ratio) %>% 
+#   pivot_longer(-c(mrn, bmi_cat)) %>% 
+#   ggplot(aes(x= name, y= value, color = bmi_cat))+
+#   geom_boxplot()+
+#   theme_minimal()+
+#   coord_flip()
+
+adipose_data %>% 
+  select(mrn, bmi_cat,
+         "muscle_area_cm2", muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         "total_fat_area", total_fat_area_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu,
+         muscle_hu_sd, v_s_ratio) %>% 
+  pivot_longer(-c(mrn, bmi_cat)) %>% 
+  mutate(name = factor(name, 
+                       levels = c(
+                         "muscle_area_cm2", "muscle_area_cm2_ind",
+         "imat_area_cm2", "imat_area_cm2_ind",
+         "vat_area_cm2", "vat_area_cm2_ind",
+         "sat_area_cm2", "sat_area_cm2_ind",
+         "total_fat_area", "total_fat_area_ind",
+         "muscle_mean_hu",                    
+         "imat_mean_hu",
+         "muscle_hu_sd", "v_s_ratio"
+                       ))) %>% 
+  ggplot(aes(x= bmi_cat, y= value, color = bmi_cat))+
+  geom_boxplot()+
+  theme_minimal()+
+  coord_flip()+
+  # facet_grid(cols = vars(name), scales = "free")
+  facet_wrap(.~ name, scales = "free", ncol = 2)
+```
+<br>
+
+## Unknown debulking_status look like Complete/Optimal debulking_status
+
+```{r}
+data <- adipose_data %>% 
+  mutate(debulking_status = case_when(
+    is.na(debulking_status)           ~ "unkn",
+    TRUE                              ~ debulking_status
+  ))
+mysurv <- Surv(data$recurrence_time, event = data$rec_event)
+myplot <- survfit(mysurv~debulking_status, data = data)
+ggsurvplot(myplot, data = data,
+           title = "Recurrence Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+```{r}
+mysurv <- Surv(data$os_time, event = data$os_event)
+myplot <- survfit(mysurv~debulking_status, data = data)
+ggsurvplot(myplot, data = data,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+<br>
+
+## KM BMI (unknown debulking status are not removed)
+<br>
+
+```{r echo=TRUE}
+# BMI cat grouping
+# (bmi_cat = case_when(
+#     bmi < 25                    ~ "Underweight and normal weight",
+#     bmi >= 25 &
+#       bmi < 30                  ~ "Overweight",
+#     bmi >= 30                   ~ "Obese"
+#   ))
+```
+
+```{r}
+mysurv <- Surv(adipose_data$recurrence_time, event = adipose_data$rec_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "Recurrence Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+
+```{r}
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                            debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <- 
+  coxph(Surv(time = adipose_data$recurrence_time,
+             event = adipose_data$rec_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + bmi_cat, data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+```{r}
+mysurv <- Surv(adipose_data$os_time, event = adipose_data$os_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+
+```{r}
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                            debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <- 
+  coxph(Surv(time = adipose_data$os_time,
+             event = adipose_data$os_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + bmi_cat, data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
+## First look at Univariable HR continous radiomics features (recurence first, os second)
+```{r}
+adipose_data %>% select(rec_event, recurrence_time,
+                        "muscle_area_cm2", muscle_area_cm2_ind,
+                        imat_area_cm2, imat_area_cm2_ind,
+                        vat_area_cm2, vat_area_cm2_ind,
+                        sat_area_cm2, sat_area_cm2_ind,
+                        "total_fat_area", total_fat_area_ind,
+                        muscle_mean_hu,                    
+                        imat_mean_hu,
+                        muscle_hu_sd, v_s_ratio) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+adipose_data %>% select(os_event, os_time,
+                        "muscle_area_cm2", muscle_area_cm2_ind,
+                        imat_area_cm2, imat_area_cm2_ind,
+                        vat_area_cm2, vat_area_cm2_ind,
+                        sat_area_cm2, sat_area_cm2_ind,
+                        "total_fat_area", total_fat_area_ind,
+                        muscle_mean_hu,                    
+                        imat_mean_hu,
+                        muscle_hu_sd, v_s_ratio) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+```
+Difficulty to decide if indexed data is better -> Will create groups.  
+<br>
+
+***
+
+<br>
+
+# Make group
+## Make group : tertile
+
+```{r tertile}
+adipose_data <- adipose_data %>% 
+  mutate(tertile = ntile(muscle_area_cm2, 3)) %>% 
+  mutate(tert_muscle_area_cm2 = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_muscle_area_cm2 = factor(tert_muscle_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(muscle_area_cm2_ind, 3)) %>% 
+  mutate(tert_muscle_area_cm2_ind = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_muscle_area_cm2_ind = factor(tert_muscle_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(imat_area_cm2, 3)) %>% 
+  mutate(tert_imat_area_cm2 = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_imat_area_cm2 = factor(tert_imat_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(imat_area_cm2_ind, 3)) %>% 
+  mutate(tert_imat_area_cm2_ind = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_imat_area_cm2_ind = factor(tert_imat_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(vat_area_cm2, 3)) %>% 
+  mutate(tert_vat_area_cm2 = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_vat_area_cm2 = factor(tert_vat_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(vat_area_cm2_ind, 3)) %>% 
+  mutate(tert_vat_area_cm2_ind = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_vat_area_cm2_ind = factor(tert_vat_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(sat_area_cm2, 3)) %>% 
+  mutate(tert_sat_area_cm2 = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_sat_area_cm2 = factor(tert_sat_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(sat_area_cm2_ind, 3)) %>% 
+  mutate(tert_sat_area_cm2_ind = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_sat_area_cm2_ind = factor(tert_sat_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(total_fat_area, 3)) %>% 
+  mutate(tert_total_fat_area = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_total_fat_area = factor(tert_total_fat_area, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(total_fat_area_ind, 3)) %>% 
+  mutate(tert_total_fat_area_ind = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_total_fat_area_ind = factor(tert_total_fat_area_ind, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(muscle_mean_hu, 3)) %>% 
+  mutate(tert_muscle_mean_hu = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_muscle_mean_hu = factor(tert_muscle_mean_hu, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(imat_mean_hu, 3)) %>% 
+  mutate(tert_imat_mean_hu = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_imat_mean_hu = factor(tert_imat_mean_hu, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(muscle_hu_sd, 3)) %>% 
+  mutate(tert_muscle_hu_sd = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_muscle_hu_sd = factor(tert_muscle_hu_sd, levels = c("Low", "Medium", "High"))) %>% 
+  mutate(tertile = ntile(v_s_ratio, 3)) %>% 
+  mutate(tert_v_s_ratio = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  ), 
+  tert_v_s_ratio = factor(tert_v_s_ratio, levels = c("Low", "Medium", "High"))) %>% 
+  select(-tertile)
+```
+ Here an example of tertiles
+```{r}
+adipose_data %>% 
+  # pivot_longer()
+  ggplot(aes(x= tert_muscle_area_cm2, y = muscle_area_cm2))+
+  geom_boxplot()
+```
+<br>
+
+## Make group : Mclust
+clusters_non_ind, muscle_mean_hu and imat_mean_hu are forced to make 3 group when it would give only 1 group by mclust - decide on 3 groups to compare with tertiles group and see what is more meaningful.
+
+```{r cluster}
+clust_data <- adipose_data %>% 
+  select(id, muscle_area_cm2, 
+         imat_area_cm2,
+         vat_area_cm2,
+         sat_area_cm2,
+         total_fat_area,
+         muscle_mean_hu,                    
+         imat_mean_hu,
+         muscle_hu_sd, 
+         v_s_ratio)
+
+set.seed(123)
+clust <- Mclust(scale(
+  clust_data[,c(2:ncol(clust_data))]
+  ), G = 3)
+summary(clust)
+clust_data$clusters_non_ind <- clust$classification
+clust_data$clusters_non_ind <- factor(clust_data$clusters_non_ind,
+                                           levels = c(2, 3, 1),
+                                           labels = c("low", "mid", "high"))
+clust_data <- clust_data %>% mutate(clusters_non_ind = factor(clusters_non_ind, levels = c("low", "mid", "high")))
+clust_data %>% 
+  pivot_longer(cols = -c(id, clusters_non_ind), names_to = "name", values_to = "value") %>% 
+  ggplot(aes(x=id, y=value, group=name,  color=name))+
+  geom_boxplot()+
+  facet_grid(.~ clusters_non_ind)
+
+adipose_data <- 
+  full_join(adipose_data, clust_data %>% select(id, starts_with("clusters_")), by = "id")
+```
+
+```{r}
+clust_data <- adipose_data %>% 
+  select(id, muscle_area_cm2, muscle_area_cm2_ind, 
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         total_fat_area, total_fat_area_ind,
+         muscle_mean_hu,                    
+         imat_mean_hu,
+         muscle_hu_sd, 
+         v_s_ratio)
+
+clust <- Mclust(clust_data$muscle_area_cm2)
+summary(clust)
+clust_data$clusters_muscle_area_cm2 <- clust$classification
+clust_data$clusters_muscle_area_cm2 <- factor(clust_data$clusters_muscle_area_cm2,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_muscle_area_cm2, y=muscle_area_cm2))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$muscle_area_cm2_ind)
+summary(clust)
+clust_data$clusters_muscle_area_cm2_ind <- clust$classification
+clust_data$clusters_muscle_area_cm2_ind <- factor(clust_data$clusters_muscle_area_cm2_ind,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_muscle_area_cm2_ind, y=muscle_area_cm2_ind))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$imat_area_cm2)
+summary(clust)
+clust_data$clusters_imat_area_cm2 <- clust$classification
+clust_data$clusters_imat_area_cm2 <- factor(clust_data$clusters_imat_area_cm2,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_imat_area_cm2, y=imat_area_cm2))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$imat_area_cm2_ind)
+summary(clust)
+clust_data$clusters_imat_area_cm2_ind <- clust$classification
+clust_data$clusters_imat_area_cm2_ind <- factor(clust_data$clusters_imat_area_cm2_ind,
+                                           levels = c(1, 2, 3, 4),
+                                           labels = c("low", "mid-low", "mid_high", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_imat_area_cm2_ind, y=imat_area_cm2_ind))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$vat_area_cm2)
+summary(clust)
+clust_data$clusters_vat_area_cm2 <- clust$classification
+clust_data$clusters_vat_area_cm2 <- factor(clust_data$clusters_vat_area_cm2,
+                                           levels = c(1, 2, 3, 4, 5),
+                                           labels = c("low", "mid-low", "mid", "mid-high", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_vat_area_cm2, y=vat_area_cm2))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$vat_area_cm2_ind)
+summary(clust)
+clust_data$clusters_vat_area_cm2_ind <- clust$classification
+clust_data$clusters_vat_area_cm2_ind <- factor(clust_data$clusters_vat_area_cm2_ind,
+                                           levels = c(1, 2, 3, 4, 5),
+                                           labels = c("low", "mid-low", "mid", "mid-high", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_vat_area_cm2_ind, y=vat_area_cm2_ind))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$sat_area_cm2)
+summary(clust)
+clust_data$clusters_sat_area_cm2 <- clust$classification
+clust_data$clusters_sat_area_cm2 <- factor(clust_data$clusters_sat_area_cm2,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_sat_area_cm2, y=sat_area_cm2))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$sat_area_cm2_ind)
+summary(clust)
+clust_data$clusters_sat_area_cm2_ind <- clust$classification
+clust_data$clusters_sat_area_cm2_ind <- factor(clust_data$clusters_sat_area_cm2_ind,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_sat_area_cm2_ind, y=sat_area_cm2_ind))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$total_fat_area)
+summary(clust)
+clust_data$clusters_total_fat_area <- clust$classification
+clust_data$clusters_total_fat_area <- factor(clust_data$clusters_total_fat_area,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_total_fat_area, y=total_fat_area))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$total_fat_area_ind)
+summary(clust)
+clust_data$clusters_total_fat_area_ind <- clust$classification
+clust_data$clusters_total_fat_area_ind <- factor(clust_data$clusters_total_fat_area_ind,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_total_fat_area_ind, y=total_fat_area_ind))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$muscle_mean_hu, G = 3)
+summary(clust)
+clust_data$clusters_muscle_mean_hu <- clust$classification
+clust_data$clusters_muscle_mean_hu <- factor(clust_data$clusters_muscle_mean_hu,
+                                           levels = c(1, 2, 3),
+                                           labels = c("low", "mid", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_muscle_mean_hu, y=muscle_mean_hu))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$imat_mean_hu, G = 3)
+summary(clust)
+clust_data$clusters_imat_mean_hu <- clust$classification
+clust_data$clusters_imat_mean_hu <- factor(clust_data$clusters_imat_mean_hu,
+                                           levels = c(1, 2, 3),
+                                           labels = c("low", "mid", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_imat_mean_hu, y=imat_mean_hu))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$muscle_hu_sd)
+summary(clust)
+clust_data$clusters_muscle_hu_sd <- clust$classification
+clust_data$clusters_muscle_hu_sd <- factor(clust_data$clusters_muscle_hu_sd,
+                                           levels = c(1, 2),
+                                           labels = c("low", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_muscle_hu_sd, y=muscle_hu_sd))+
+  geom_boxplot()
+
+clust <- Mclust(clust_data$v_s_ratio)
+summary(clust)
+clust_data$clusters_v_s_ratio <- clust$classification
+clust_data$clusters_v_s_ratio <- factor(clust_data$clusters_v_s_ratio,
+                                           levels = c(1, 2, 3, 4, 5),
+                                           labels = c("mid", "low", "mid-low", "mid-high", "high"))
+clust_data %>% 
+  ggplot(aes(x=clusters_v_s_ratio, y=v_s_ratio))+
+  geom_boxplot()
+
+adipose_data <- 
+  full_join(adipose_data, clust_data %>% select(id, starts_with("clusters_")), by = "id")
+
+```
+<br>
+
+## Visualize tertile and cluster on survival
+### OS
+<div class = "row">
+<div class = "col-md-6">
+```{r, fig.height = 8}
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_muscle_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_muscle_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_imat_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_imat_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_vat_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_vat_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_sat_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_sat_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_total_fat_area, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_total_fat_area_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_muscle_mean_hu, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_imat_mean_hu, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_muscle_hu_sd, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ tert_v_s_ratio, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+```
+</div>
+
+<div class = "col-md-6">
+```{r, fig.height = 8}
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_muscle_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_muscle_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_imat_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_imat_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_vat_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_vat_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_sat_area_cm2, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_sat_area_cm2_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_total_fat_area, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_total_fat_area_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_muscle_mean_hu, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_imat_mean_hu, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_muscle_hu_sd, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_v_s_ratio, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(22, "bold", "black"),
+           font.x = c(20, "bold", "black"),
+           font.y = c(20, "bold", "black"),
+           font.legend = c(20, "black"),
+           font.tickslab = c(18, "bold", "black"),
+           size = 1.5,
+           
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+```
+</div>
+</div>
+
+<br>
+```{r, fig.height = 8}
+surv_model <-
+  survfit(Surv(time = os_time, event = os_event) ~ clusters_non_ind, data = adipose_data)
+ggsurvplot(surv_model, data = adipose_data,
+           title = "Overall Survival analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+           xlab = "Time (months)", legend.title = "", 
+           pval = TRUE,
+           conf.int = FALSE,
+           tables.height = 0.25,
+           risk.table.title = "Risk table",
+           risk.table = TRUE,
+           risk.table.y.text = FALSE,
+           risk.table.fontsize = 4,
+           tables.theme = theme_survminer(base_size = 5,
+                                          font.main = c(16, "bold", "black"),
+                                          font.x = c(14, "bold", "black"),
+                                          font.y = c(16, "bold", "transparent"),
+                                          font.tickslab = c(14, "bold", "black"))
+) + guides(colour = guide_legend(ncol = 1))
+```
+<br>
+
+## HR for tertiles
+### Recurrence
+Multivariable anlyses are adjusted by `+ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage`.  
+For visceral features the first table is not adjusted by ascites while the second table is.  
+```{r HR tertiles recurrence}
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_muscle_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                   include = tert_muscle_area_cm2) %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_muscle_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_muscle_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_muscle_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_imat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_imat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_imat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_vat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_vat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_vat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_vat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_sat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_sat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_sat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_total_fat_area, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_total_fat_area + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_total_fat_area_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_total_fat_area_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_total_fat_area_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_muscle_mean_hu, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_muscle_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_mean_hu) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_imat_mean_hu, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_imat_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_mean_hu) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_muscle_hu_sd, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_hu_sd) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_muscle_hu_sd + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_hu_sd) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_v_s_ratio, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                                tert_v_s_ratio, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+### OS
+```{r HR tertiles os}
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_imat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_imat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_imat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_sat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_sat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_sat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_total_fat_area, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_total_fat_area + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_total_fat_area_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_total_fat_area_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_total_fat_area_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_mean_hu, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_mean_hu) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_imat_mean_hu, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_imat_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_mean_hu) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_hu_sd, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_hu_sd) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_hu_sd + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_hu_sd) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_v_s_ratio, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_v_s_ratio, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
