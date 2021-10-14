@@ -44,6 +44,13 @@ adipose_data <- left_join(radiomics, clinical_data,
   mutate(raceeth1 = case_when(
     raceeth == "White Non-Hispanic"        ~ "NHWhite",
     TRUE                                   ~ "Others"
+  )) %>% 
+  mutate(ascites = case_when(
+    is.na(ascites)                         ~ "absence",
+    str_detect(ascites, "tumor")           ~ "absence",
+    str_detect(ascites, "moderate")        ~ "moderate",
+    str_detect(ascites, "severe")          ~ "severe",
+    str_detect(ascites, "mild")            ~ "mild"
   ))
 
 adipose_data %>% nrow()
