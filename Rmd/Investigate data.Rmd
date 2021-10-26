@@ -157,54 +157,54 @@ adipose_data %>%
 ```
 <br>
 
-## Unknown debulking_status look like Complete/Optimal debulking_status
+<!-- ## Unknown debulking_status look like Complete/Optimal debulking_status -->
 
 ```{r}
-data <- adipose_data %>% 
-  mutate(debulking_status = case_when(
-    is.na(debulking_status)           ~ "unkn",
-    TRUE                              ~ debulking_status
-  ))
-mysurv <- Surv(data$recurrence_time, event = data$rec_event)
-myplot <- survfit(mysurv~debulking_status, data = data)
-ggsurvplot(myplot, data = data,
-           title = "Recurrence Analysis",
-           font.main = c(20, "bold", "black"),
-           font.x = c(18, "bold", "black"),
-           font.y = c(18, "bold", "black"),
-           font.legend = c(16, "black"),
-           font.tickslab = c(16, "bold", "black"),
-           size = 1.5,
-
-           xlab = "Time in months",
-           legend = "top",
-           legend.title = "",
-           pval = TRUE,
-           conf.int = FALSE,
-           # Censor
-           censor = TRUE
-) + guides(colour = guide_legend(ncol = 1))
-```
-```{r}
-mysurv <- Surv(data$os_time, event = data$os_event)
-myplot <- survfit(mysurv~debulking_status, data = data)
-ggsurvplot(myplot, data = data,
-           title = "OS Analysis",
-           font.main = c(20, "bold", "black"),
-           font.x = c(18, "bold", "black"),
-           font.y = c(18, "bold", "black"),
-           font.legend = c(16, "black"),
-           font.tickslab = c(16, "bold", "black"),
-           size = 1.5,
-
-           xlab = "Time in months",
-           legend = "top",
-           legend.title = "",
-           pval = TRUE,
-           conf.int = FALSE,
-           # Censor
-           censor = TRUE
-) + guides(colour = guide_legend(ncol = 1))
+# data <- adipose_data %>% 
+#   mutate(debulking_status = case_when(
+#     is.na(debulking_status)           ~ "unkn",
+#     TRUE                              ~ debulking_status
+#   ))
+# mysurv <- Surv(data$recurrence_time, event = data$rec_event)
+# myplot <- survfit(mysurv~debulking_status, data = data)
+# ggsurvplot(myplot, data = data,
+#            title = "Recurrence Analysis",
+#            font.main = c(20, "bold", "black"),
+#            font.x = c(18, "bold", "black"),
+#            font.y = c(18, "bold", "black"),
+#            font.legend = c(16, "black"),
+#            font.tickslab = c(16, "bold", "black"),
+#            size = 1.5,
+# 
+#            xlab = "Time in months",
+#            legend = "top",
+#            legend.title = "",
+#            pval = TRUE,
+#            conf.int = FALSE,
+#            # Censor
+#            censor = TRUE
+# ) + guides(colour = guide_legend(ncol = 1))
+# ```
+# ```{r}
+# mysurv <- Surv(data$os_time, event = data$os_event)
+# myplot <- survfit(mysurv~debulking_status, data = data)
+# ggsurvplot(myplot, data = data,
+#            title = "OS Analysis",
+#            font.main = c(20, "bold", "black"),
+#            font.x = c(18, "bold", "black"),
+#            font.y = c(18, "bold", "black"),
+#            font.legend = c(16, "black"),
+#            font.tickslab = c(16, "bold", "black"),
+#            size = 1.5,
+# 
+#            xlab = "Time in months",
+#            legend = "top",
+#            legend.title = "",
+#            pval = TRUE,
+#            conf.int = FALSE,
+#            # Censor
+#            censor = TRUE
+# ) + guides(colour = guide_legend(ncol = 1))
 ```
 <br>
 
@@ -253,8 +253,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
-                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <- 
   coxph(Surv(time = adipose_data$recurrence_time,
              event = adipose_data$rec_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status + bmi_cat, data =  adipose_data) %>%
@@ -294,8 +295,9 @@ tbl1 <- adipose_data %>% select(os_event, os_time,
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$os_time,
                              event = adipose_data$os_event)),
-                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <- 
   coxph(Surv(time = adipose_data$os_time,
              event = adipose_data$os_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status + bmi_cat, data =  adipose_data) %>%
@@ -305,6 +307,7 @@ tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable*
 <br>
 <br>
 
+# Pre-treatment CT-based measures of adiposity
 ## First look at Univariable HR continous radiomics features (recurence first, os second)
 ```{r}
 adipose_data %>% select(rec_event, recurrence_time,
@@ -319,8 +322,9 @@ adipose_data %>% select(rec_event, recurrence_time,
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
-                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 
 adipose_data %>% select(os_event, os_time,
                         "muscle_area_cm2", muscle_area_cm2_ind,
@@ -334,8 +338,9 @@ adipose_data %>% select(os_event, os_time,
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$os_time,
                              event = adipose_data$os_event)),
-                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 ```
 Difficulty to decide if indexed data is better -> Will create groups.  
 <br>
@@ -457,6 +462,74 @@ adipose_data %>%
   geom_boxplot()
 ```
 <br>
+
+### Tertile summary
+
+```{r}
+tbl1 <- adipose_data %>% 
+  select(sat_area_cm2, 
+         imat_area_cm2,
+         vat_area_cm2
+         ) %>% 
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{mean}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% 
+  modify_footnote(update = everything() ~ NA)
+
+tbl2 <- adipose_data %>% 
+  select(sat_area_cm2, 
+         imat_area_cm2,
+         vat_area_cm2
+         ) %>% 
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{min} - {max}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% 
+  modify_footnote(update = everything() ~ NA)
+
+tbl3 <- adipose_data %>% 
+  select(sat_area_cm2, 
+         imat_area_cm2,
+         vat_area_cm2
+         ) %>% 
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{median}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% 
+  modify_footnote(update = everything() ~ NA)
+tbl_merge(list(tbl1, tbl2, tbl3), tab_spanner = c("Mean", "Min-Max", "Median"))
+
+
+tbl3 <- adipose_data %>% 
+  select(tert_sat_area_cm2, sat_area_cm2) %>% 
+  tbl_summary(by = tert_sat_area_cm2,
+            statistic=list(all_continuous() ~ "{min} - {max}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels()
+
+tbl4 <- adipose_data %>% 
+  select(tert_imat_area_cm2, imat_area_cm2) %>% 
+  tbl_summary(by = tert_imat_area_cm2,
+            statistic=list(all_continuous() ~ "{min} - {max}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels()
+
+tbl5 <- adipose_data %>% 
+  select(tert_vat_area_cm2, vat_area_cm2) %>% 
+  tbl_summary(by = tert_vat_area_cm2,
+            statistic=list(all_continuous() ~ "{min} - {max}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels()
+tbl_stack(list(tbl3, tbl4, tbl5))
+```
+
 
 ## Make group : Mclust
 clusters_non_ind, muscle_mean_hu and imat_mean_hu are forced to make 3 group when it would give only 1 group by mclust - decide on 3 groups to compare with tertiles group and see what is more meaningful.
@@ -1422,9 +1495,343 @@ ggsurvplot(surv_model, data = adipose_data,
 <br>
 
 ## HR for tertiles
-### Recurrence
 Multivariable anlyses are adjusted by `+ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type`.  
 For visceral features the first table is not adjusted by ascites while the second table is.  
+
+### OS
+```{r HR tertiles os}
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_imat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_imat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_imat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                   label = list(tert_vat_area_cm2 ~ "tert_vat_area_cm2 / ascites"),
+                 include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 label = list(tert_vat_area_cm2 ~ "tert_vat_area_cm2 / ascites"),
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                   label = list(tert_vat_area_cm2_ind ~ "tert_vat_area_cm2_ind / ascites"),
+                 include = tert_vat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 label = list(tert_vat_area_cm2_ind ~ "tert_vat_area_cm2_ind / ascites"),
+                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_sat_area_cm2, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_sat_area_cm2_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_sat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_sat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_total_fat_area, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_total_fat_area + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_total_fat_area_ind, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_total_fat_area_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_total_fat_area_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area_ind) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_mean_hu, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_mean_hu) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_mean_hu) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_imat_mean_hu, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_imat_mean_hu) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_imat_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_mean_hu) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_muscle_hu_sd, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_muscle_hu_sd) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_hu_sd + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_muscle_hu_sd) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_v_s_ratio, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_v_s_ratio) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                                tert_v_s_ratio, 
+                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
+                                treatment_type, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE, 
+                   label = list(tert_v_s_ratio ~ "tert_v_s_ratio / ascites"),
+                 include = tert_v_s_ratio) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 label = list(tert_v_s_ratio ~ "tert_v_s_ratio / ascites"),
+                 include = tert_v_s_ratio) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+
+### Recurrence
 ```{r HR tertiles recurrence}
 tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                                 tert_muscle_area_cm2, 
@@ -1435,8 +1842,8 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
                    include = tert_muscle_area_cm2) %>% 
-  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_muscle_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1453,8 +1860,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_muscle_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_muscle_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1471,8 +1879,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_imat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1489,8 +1898,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_imat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_imat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1507,8 +1917,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1525,13 +1936,16 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   label = list(tert_vat_area_cm2 ~ "tert_vat_area_cm2 / ascites"),
+                 include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
     data =  adipose_data) %>%
   tbl_regression(exponentiate = TRUE, 
+                 label = list(tert_vat_area_cm2 ~ "tert_vat_area_cm2 / ascites"),
                  include = tert_vat_area_cm2) %>% bold_p(t = .05)
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
@@ -1543,8 +1957,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_vat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1562,13 +1977,16 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   label = list(tert_vat_area_cm2_ind ~ "tert_vat_area_cm2_ind / ascites"),
+                 include = tert_vat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
     data =  adipose_data) %>%
   tbl_regression(exponentiate = TRUE, 
+                 label = list(tert_vat_area_cm2_ind ~ "tert_vat_area_cm2_ind / ascites"),
                  include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
@@ -1580,8 +1998,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_sat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1598,8 +2017,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_sat_area_cm2_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_sat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1616,8 +2036,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_total_fat_area) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_total_fat_area + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1634,8 +2055,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_total_fat_area_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_total_fat_area_ind) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_total_fat_area_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1652,8 +2074,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_muscle_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_muscle_mean_hu) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_muscle_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1670,8 +2093,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_imat_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_imat_mean_hu) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_imat_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1688,8 +2112,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_muscle_hu_sd) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_muscle_hu_sd) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_muscle_hu_sd + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1706,8 +2131,9 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                 include = tert_v_s_ratio) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
@@ -1724,322 +2150,16 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
                    exponentiate = TRUE, 
-                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   label = list(tert_v_s_ratio ~ "tert_v_s_ratio / ascites"),
+                 include = tert_v_s_ratio) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
   coxph(Surv(time = adipose_data$recurrence_time,
          event = adipose_data$rec_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
     data =  adipose_data) %>%
   tbl_regression(exponentiate = TRUE, 
-                 include = tert_v_s_ratio) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-```
-
-### OS
-```{r HR tertiles os}
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_muscle_area_cm2, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_muscle_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_muscle_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_muscle_area_cm2) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_muscle_area_cm2_ind, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_muscle_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_imat_area_cm2, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_imat_area_cm2) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_imat_area_cm2_ind, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_imat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_imat_area_cm2_ind) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_vat_area_cm2, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_vat_area_cm2, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type, ascites) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_vat_area_cm2) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_vat_area_cm2_ind, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_vat_area_cm2_ind, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type, ascites) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_vat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_vat_area_cm2_ind) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_sat_area_cm2, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_sat_area_cm2) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_sat_area_cm2_ind, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_sat_area_cm2_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_sat_area_cm2_ind) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_total_fat_area, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_total_fat_area + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_total_fat_area) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_total_fat_area_ind, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_total_fat_area_ind) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_total_fat_area_ind + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_total_fat_area_ind) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_muscle_mean_hu, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_muscle_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_muscle_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_muscle_mean_hu) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_imat_mean_hu, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_imat_mean_hu) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_imat_mean_hu + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_imat_mean_hu) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_muscle_hu_sd, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_muscle_hu_sd) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_muscle_hu_sd + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_muscle_hu_sd) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_v_s_ratio, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
-                 include = tert_v_s_ratio) %>% bold_p(t = .05)
-tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
-
-tbl1 <- adipose_data %>% select(os_event, os_time,
-                                tert_v_s_ratio, 
-                                raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                                treatment_type, ascites) %>%
-  tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data$os_time,
-                             event = adipose_data$os_event)),
-                   exponentiate = TRUE, 
-                 include = tert_v_s_ratio) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl2 <-
-  coxph(Surv(time = adipose_data$os_time,
-         event = adipose_data$os_event) ~ tert_v_s_ratio + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + ascites,
-    data =  adipose_data) %>%
-  tbl_regression(exponentiate = TRUE, 
+                 label = list(tert_v_s_ratio ~ "tert_v_s_ratio / ascites"),
                  include = tert_v_s_ratio) %>% bold_p(t = .05)
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 ```
