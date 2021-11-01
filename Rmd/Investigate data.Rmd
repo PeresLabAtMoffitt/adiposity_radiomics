@@ -91,22 +91,57 @@ adipose_data %>%
 ## Table 2. CT-based measures of adiposity
 
 ```{r}
-adipose_data %>% 
-  select("thickness", "muscle_area_cm2", muscle_area_cm2_ind,
+tbl1 <- adipose_data %>% 
+  select(thickness, muscle_area_cm2, muscle_area_cm2_ind,
          imat_area_cm2, imat_area_cm2_ind,
          vat_area_cm2, vat_area_cm2_ind,
          sat_area_cm2, sat_area_cm2_ind,
          muscle_mean_hu,                    
-         imat_mean_hu, vat_mean_hu, sat_mean_hu,                       
-         muscle_hu_sd, imat_hu_sd, vat_hu_sd,                         
-         sat_hu_sd, v_s_ratio, 
-         "total_fat_area", total_fat_area_ind) %>% 
+         v_s_ratio, 
+         total_fat_area, total_fat_area_ind) %>% 
   tbl_summary(
             statistic=list(all_continuous() ~ "{mean} ({sd})"), 
             digits = all_continuous() ~ 1
             ) %>%  
-  bold_labels() %>% add_stat_label() %>% 
-  modify_footnote(update = everything() ~ NA)
+  bold_labels() %>% 
+  modify_header(
+    update = list(
+      stat_0 ~ "**Mean (SD)**"))
+
+tbl2 <- adipose_data %>% 
+  select(thickness, muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         v_s_ratio, 
+         total_fat_area, total_fat_area_ind) %>% 
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{median}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels()  %>% 
+  modify_header(
+    update = list(
+      stat_0 ~ "**Median**"))
+tbl3 <- adipose_data %>% 
+  select(thickness, muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         v_s_ratio, 
+         total_fat_area, total_fat_area_ind) %>% 
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{min} - {max}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% 
+  modify_header(
+    update = list(
+      stat_0 ~ "**Range**"))
+tbl_merge(list(tbl1, tbl2, tbl3)) %>%
+  modify_spanning_header(everything() ~ NA_character_)
 ```
 
 ```{r, fig.width= 12, fig.height= 12}
@@ -128,25 +163,23 @@ adipose_data %>%
 
 adipose_data %>% 
   select(mrn, bmi_cat,
-         "muscle_area_cm2", muscle_area_cm2_ind,
+         muscle_area_cm2, muscle_area_cm2_ind,
          imat_area_cm2, imat_area_cm2_ind,
          vat_area_cm2, vat_area_cm2_ind,
          sat_area_cm2, sat_area_cm2_ind,
-         "total_fat_area", total_fat_area_ind,
+         total_fat_area, total_fat_area_ind,
          muscle_mean_hu,                    
-         imat_mean_hu,
-         muscle_hu_sd, v_s_ratio) %>% 
+         v_s_ratio) %>% 
   pivot_longer(-c(mrn, bmi_cat)) %>% 
   mutate(name = factor(name, 
                        levels = c(
                          "muscle_area_cm2", "muscle_area_cm2_ind",
-         "imat_area_cm2", "imat_area_cm2_ind",
-         "vat_area_cm2", "vat_area_cm2_ind",
-         "sat_area_cm2", "sat_area_cm2_ind",
-         "total_fat_area", "total_fat_area_ind",
-         "muscle_mean_hu",                    
-         "imat_mean_hu",
-         "muscle_hu_sd", "v_s_ratio"
+                         "imat_area_cm2", "imat_area_cm2_ind",
+                         "vat_area_cm2", "vat_area_cm2_ind",
+                         "sat_area_cm2", "sat_area_cm2_ind",
+                         "total_fat_area", "total_fat_area_ind",
+                         "muscle_mean_hu",                    
+                         "v_s_ratio"
                        ))) %>% 
   ggplot(aes(x= bmi_cat, y= value, color = bmi_cat))+
   geom_boxplot()+
@@ -156,6 +189,23 @@ adipose_data %>%
   facet_wrap(.~ name, scales = "free", ncol = 2)
 ```
 <br>
+
+```{r}
+adipose_data %>% 
+  select(muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         v_s_ratio, 
+         total_fat_area, total_fat_area_ind,
+         treatment_type) %>% 
+  tbl_summary(by = treatment_type,
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% add_p() %>% bold_p(t= 0.05)
+```
 
 <!-- ## Unknown debulking_status look like Complete/Optimal debulking_status -->
 
@@ -311,14 +361,13 @@ tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable*
 ## First look at Univariable HR continous radiomics features (recurence first, os second)
 ```{r}
 adipose_data %>% select(rec_event, recurrence_time,
-                        "muscle_area_cm2", muscle_area_cm2_ind,
-                        imat_area_cm2, imat_area_cm2_ind,
-                        vat_area_cm2, vat_area_cm2_ind,
-                        sat_area_cm2, sat_area_cm2_ind,
-                        "total_fat_area", total_fat_area_ind,
-                        muscle_mean_hu,                    
-                        imat_mean_hu,
-                        muscle_hu_sd, v_s_ratio) %>%
+                        muscle_area_cm2_HR, muscle_area_cm2_ind_HR,
+                        imat_area_cm2_HR, imat_area_cm2_ind_HR,
+                        vat_area_cm2_HR, vat_area_cm2_ind_HR,
+                        sat_area_cm2_HR, sat_area_cm2_ind_HR,
+                        total_fat_area_HR, total_fat_area_ind_HR,
+                        muscle_mean_hu_HR,                    
+                        v_s_ratio_HR) %>%
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
@@ -327,14 +376,13 @@ adipose_data %>% select(rec_event, recurrence_time,
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 
 adipose_data %>% select(os_event, os_time,
-                        "muscle_area_cm2", muscle_area_cm2_ind,
-                        imat_area_cm2, imat_area_cm2_ind,
-                        vat_area_cm2, vat_area_cm2_ind,
-                        sat_area_cm2, sat_area_cm2_ind,
-                        "total_fat_area", total_fat_area_ind,
-                        muscle_mean_hu,                    
-                        imat_mean_hu,
-                        muscle_hu_sd, v_s_ratio) %>%
+                        muscle_area_cm2_HR, muscle_area_cm2_ind_HR,
+                        imat_area_cm2_HR, imat_area_cm2_ind_HR,
+                        vat_area_cm2_HR, vat_area_cm2_ind_HR,
+                        sat_area_cm2_HR, sat_area_cm2_ind_HR,
+                        total_fat_area_HR, total_fat_area_ind_HR,
+                        muscle_mean_hu_HR,                    
+                        v_s_ratio_HR) %>%
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$os_time,
                              event = adipose_data$os_event)),

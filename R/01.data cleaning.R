@@ -62,7 +62,26 @@ adipose_data <- adipose_data %>%
   `colnames<-`(paste(colnames(.), "ind", sep = "_")) %>% 
   full_join(adipose_data, ., by = c("mrn" = "mrn_ind"))
 
-
+adipose_data <- adipose_data %>% 
+  select(mrn, muscle_area_cm2, imat_area_cm2, vat_area_cm2, sat_area_cm2, total_fat_area,
+         ends_with("_ind"),
+         muscle_mean_hu, imat_mean_hu, muscle_hu_sd, v_s_ratio) %>% 
+  mutate(across(where(is.numeric), ~ sd(.))) %>% 
+  `colnames<-`(paste(colnames(.), "SD", sep = "_")) %>% 
+  full_join(adipose_data, ., by = c("mrn" = "mrn_SD")) %>% 
+  mutate(muscle_area_cm2_HR = muscle_area_cm2 / muscle_area_cm2_SD,
+         imat_area_cm2_HR = imat_area_cm2 / imat_area_cm2_SD,
+         vat_area_cm2_HR = vat_area_cm2 / vat_area_cm2_SD,
+         sat_area_cm2_HR = sat_area_cm2 / sat_area_cm2_SD,
+         total_fat_area_HR = total_fat_area / total_fat_area_SD,
+         muscle_area_cm2_ind_HR = muscle_area_cm2_ind / muscle_area_cm2_ind_SD,
+         imat_area_cm2_ind_HR = imat_area_cm2_ind / imat_area_cm2_ind_SD,
+         vat_area_cm2_ind_HR = vat_area_cm2_ind / vat_area_cm2_ind_SD,
+         sat_area_cm2_ind_HR = sat_area_cm2_ind / sat_area_cm2_ind_SD,
+         total_fat_area_ind_HR = total_fat_area_ind / total_fat_area_ind_SD,
+         muscle_mean_hu_HR = muscle_mean_hu / muscle_mean_hu_SD,
+         imat_mean_hu_HR = imat_mean_hu / imat_mean_hu_SD,
+         v_s_ratio_HR = v_s_ratio / v_s_ratio_SD)
 
 
 
