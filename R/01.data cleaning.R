@@ -28,7 +28,7 @@ adipose_data <- left_join(radiomics, clinical_data,
   # Eight patients were excluded due to coverage artifacts
   filter(is.na(should_exclude)) %>% 
   # Eight patients were excluded due to incomplete or missing CT images 
-  filter(!is.na(muscle_area_cm2)) %>% 
+  filter(!is.na(muscle_area_cm2), !is.na(tnm_cs_mixed_group_stage)) %>% 
   mutate(mrn = as.character(mrn)) %>% 
   # Create variable
   mutate(bmi = weight / (height_m_ * height_m_)) %>% 
@@ -39,7 +39,13 @@ adipose_data <- left_join(radiomics, clinical_data,
     bmi >= 30                   ~ "Obese"
   )) %>%
   mutate(bmi_cat = factor(bmi_cat, levels = c("Underweight and normal weight", "Overweight", "Obese"))) %>% 
-  mutate(tnm_cs_mixed_group_stage = factor(tnm_cs_mixed_group_stage)) %>% 
+  mutate(tnm_cs_mixed_group_stage = case_when(
+    tnm_cs_mixed_group_stage == 1 |
+      tnm_cs_mixed_group_stage == 2           ~ "I-II",
+    tnm_cs_mixed_group_stage == 3             ~ "III",
+    tnm_cs_mixed_group_stage == 4             ~ "IV"
+  )) %>% 
+  mutate(tnm_cs_mixed_group_stage = factor(tnm_cs_mixed_group_stage, levels = c("IV", "III", "I-II"))) %>% 
   mutate(weight_date = as.Date(weight_date, format = "%m/%d/%Y")) %>% 
   mutate(raceeth1 = case_when(
     raceeth == "White Non-Hispanic"        ~ "NHWhite",

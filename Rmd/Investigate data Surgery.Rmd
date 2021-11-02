@@ -50,8 +50,7 @@ library(survminer)
 ```{r load test-retest}
 path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics", "CTbased adiposity")
 
-adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds")) %>% 
-  filter(!is.na(tnm_cs_mixed_group_stage)) %>% 
+adipose_data <- read_rds(paste0(here::here(), "/adipose_data_with_groups.rds")) %>% 
   filter(treatment_type == "Upfront Surgery")
 ```
 
@@ -91,23 +90,57 @@ adipose_data %>%
 ## Table 2. CT-based measures of adiposity
 
 ```{r}
-adipose_data %>% 
-  select(thickness, "muscle_area_cm2", muscle_area_cm2_ind,
+tbl1 <- adipose_data %>% 
+  select(thickness, muscle_area_cm2, muscle_area_cm2_ind,
          imat_area_cm2, imat_area_cm2_ind,
          vat_area_cm2, vat_area_cm2_ind,
          sat_area_cm2, sat_area_cm2_ind,
          muscle_mean_hu,                    
-         imat_mean_hu, vat_mean_hu, sat_mean_hu,                       
-         muscle_hu_sd, imat_hu_sd, vat_hu_sd,                         
-         sat_hu_sd, v_s_ratio, 
+         v_s_ratio, 
          total_fat_area, total_fat_area_ind) %>% 
   tbl_summary(
-    type = list(thickness ~ "continuous"),
             statistic=list(all_continuous() ~ "{mean} ({sd})"), 
             digits = all_continuous() ~ 1
             ) %>%  
-  bold_labels() %>% add_stat_label() %>% 
-  modify_footnote(update = everything() ~ NA)
+  bold_labels() %>% 
+  modify_header(
+    update = list(
+      stat_0 ~ "**Mean (SD)**"))
+
+tbl2 <- adipose_data %>% 
+  select(thickness, muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         v_s_ratio, 
+         total_fat_area, total_fat_area_ind) %>% 
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{median}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels()  %>% 
+  modify_header(
+    update = list(
+      stat_0 ~ "**Median**"))
+tbl3 <- adipose_data %>% 
+  select(thickness, muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         v_s_ratio, 
+         total_fat_area, total_fat_area_ind) %>% 
+  tbl_summary(
+            statistic=list(all_continuous() ~ "{min} - {max}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% 
+  modify_header(
+    update = list(
+      stat_0 ~ "**Range**"))
+tbl_merge(list(tbl1, tbl2, tbl3)) %>%
+  modify_spanning_header(everything() ~ NA_character_)
 ```
 
 ```{r, fig.width= 12, fig.height= 12}
@@ -129,25 +162,23 @@ adipose_data %>%
 
 adipose_data %>% 
   select(mrn, bmi_cat,
-         "muscle_area_cm2", muscle_area_cm2_ind,
+         muscle_area_cm2, muscle_area_cm2_ind,
          imat_area_cm2, imat_area_cm2_ind,
          vat_area_cm2, vat_area_cm2_ind,
          sat_area_cm2, sat_area_cm2_ind,
-         "total_fat_area", total_fat_area_ind,
+         total_fat_area, total_fat_area_ind,
          muscle_mean_hu,                    
-         imat_mean_hu,
-         muscle_hu_sd, v_s_ratio) %>% 
+         v_s_ratio) %>% 
   pivot_longer(-c(mrn, bmi_cat)) %>% 
   mutate(name = factor(name, 
                        levels = c(
                          "muscle_area_cm2", "muscle_area_cm2_ind",
-         "imat_area_cm2", "imat_area_cm2_ind",
-         "vat_area_cm2", "vat_area_cm2_ind",
-         "sat_area_cm2", "sat_area_cm2_ind",
-         "total_fat_area", "total_fat_area_ind",
-         "muscle_mean_hu",                    
-         "imat_mean_hu",
-         "muscle_hu_sd", "v_s_ratio"
+                         "imat_area_cm2", "imat_area_cm2_ind",
+                         "vat_area_cm2", "vat_area_cm2_ind",
+                         "sat_area_cm2", "sat_area_cm2_ind",
+                         "total_fat_area", "total_fat_area_ind",
+                         "muscle_mean_hu",                    
+                         "v_s_ratio"
                        ))) %>% 
   ggplot(aes(x= bmi_cat, y= value, color = bmi_cat))+
   geom_boxplot()+
@@ -155,6 +186,24 @@ adipose_data %>%
   coord_flip()+
   # facet_grid(cols = vars(name), scales = "free")
   facet_wrap(.~ name, scales = "free", ncol = 2)
+```
+<br>
+
+```{r}
+adipose_data %>% 
+  select(muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu,                    
+         v_s_ratio, 
+         total_fat_area, total_fat_area_ind,
+         treatment_type) %>% 
+  tbl_summary(by = treatment_type,
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% add_p() %>% bold_p(t= 0.05)
 ```
 <br>
 
@@ -249,7 +298,6 @@ ggsurvplot(myplot, data = adipose_data,
 ```{r}
 tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
                             raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                            debulking_status, 
                             bmi, bmi_cat) %>%
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$recurrence_time,
@@ -258,7 +306,7 @@ tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
   bold_labels() %>% italicize_levels()
 tbl2 <- 
   coxph(Surv(time = adipose_data$recurrence_time,
-             event = adipose_data$rec_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + bmi_cat, data =  adipose_data) %>%
+             event = adipose_data$rec_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + bmi_cat, data =  adipose_data) %>%
   tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 ```
@@ -290,7 +338,6 @@ ggsurvplot(myplot, data = adipose_data,
 ```{r}
 tbl1 <- adipose_data %>% select(os_event, os_time,
                             raceeth1, age_at_diagnosis, tnm_cs_mixed_group_stage, 
-                            debulking_status, 
                             bmi, bmi_cat) %>%
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$os_time,
@@ -299,357 +346,239 @@ tbl1 <- adipose_data %>% select(os_event, os_time,
   bold_labels() %>% italicize_levels()
 tbl2 <- 
   coxph(Surv(time = adipose_data$os_time,
-             event = adipose_data$os_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + bmi_cat, data =  adipose_data) %>%
+             event = adipose_data$os_event) ~ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + bmi_cat, data =  adipose_data) %>%
   tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 ```
 <br>
 <br>
 
-## First look at Univariable HR continous radiomics features (recurence first, os second)
-```{r}
-adipose_data %>% select(rec_event, recurrence_time,
-                        "muscle_area_cm2", muscle_area_cm2_ind,
-                        imat_area_cm2, imat_area_cm2_ind,
-                        vat_area_cm2, vat_area_cm2_ind,
-                        sat_area_cm2, sat_area_cm2_ind,
-                        "total_fat_area", total_fat_area_ind,
-                        muscle_mean_hu,                    
-                        imat_mean_hu,
-                        muscle_hu_sd, v_s_ratio) %>%
+## Univariable HR continous radiomics : recurrence
+```{r univariable}
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                        muscle_area_cm2_HR, muscle_area_cm2_ind_HR,
+                        imat_area_cm2_HR, imat_area_cm2_ind_HR,
+                        vat_area_cm2_HR, vat_area_cm2_ind_HR,
+                        sat_area_cm2_HR, sat_area_cm2_ind_HR,
+                        total_fat_area_HR, total_fat_area_ind_HR,
+                        muscle_mean_hu_HR,                    
+                        v_s_ratio_HR) %>%
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$recurrence_time,
                              event = adipose_data$rec_event)),
-                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 
-adipose_data %>% select(os_event, os_time,
-                        "muscle_area_cm2", muscle_area_cm2_ind,
-                        imat_area_cm2, imat_area_cm2_ind,
-                        vat_area_cm2, vat_area_cm2_ind,
-                        sat_area_cm2, sat_area_cm2_ind,
-                        "total_fat_area", total_fat_area_ind,
-                        muscle_mean_hu,                    
-                        imat_mean_hu,
-                        muscle_hu_sd, v_s_ratio) %>%
+tbl2 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ muscle_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = muscle_area_cm2_HR) %>% bold_p(t = .05)
+tbl3 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ muscle_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = muscle_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl4 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ imat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = imat_area_cm2_HR) %>% bold_p(t = .05)
+tbl5 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ imat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = imat_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl6 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ vat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_HR) %>% bold_p(t = .05)
+tbl7 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ vat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl8 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ sat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = sat_area_cm2_HR) %>% bold_p(t = .05)
+tbl9 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = sat_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl10 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ total_fat_area_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = total_fat_area_HR) %>% bold_p(t = .05)
+tbl11 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ total_fat_area_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = total_fat_area_ind_HR) %>% bold_p(t = .05)
+tbl12 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ muscle_mean_hu_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = muscle_mean_hu_HR) %>% bold_p(t = .05)
+tbl13 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ v_s_ratio_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = v_s_ratio_HR) %>% bold_p(t = .05)
+
+tbl2 <- tbl_stack(list(tbl2, tbl3, tbl4, tbl5,
+               tbl6, tbl7, tbl8, tbl9, tbl10,
+               tbl11, tbl12, tbl13))
+
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+Adjusted for ascites
+```{r}
+coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ vat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_HR) %>% bold_p(t = .05)
+coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ vat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_ind_HR) %>% bold_p(t = .05)
+
+```
+
+## Univariable HR continous radiomics : OS
+```{r}
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                        muscle_area_cm2_HR, muscle_area_cm2_ind_HR,
+                        imat_area_cm2_HR, imat_area_cm2_ind_HR,
+                        vat_area_cm2_HR, vat_area_cm2_ind_HR,
+                        sat_area_cm2_HR, sat_area_cm2_ind_HR,
+                        total_fat_area_HR, total_fat_area_ind_HR,
+                        muscle_mean_hu_HR,                    
+                        v_s_ratio_HR) %>%
   tbl_uvregression(method = survival::coxph,
                    y = (Surv(time = adipose_data$os_time,
                              event = adipose_data$os_event)),
-                   exponentiate = TRUE) %>% bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl2 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ muscle_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = muscle_area_cm2_HR) %>% bold_p(t = .05)
+tbl3 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ muscle_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = muscle_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl4 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ imat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = imat_area_cm2_HR) %>% bold_p(t = .05)
+tbl5 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ imat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = imat_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl6 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ vat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_HR) %>% bold_p(t = .05)
+tbl7 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ vat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl8 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ sat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = sat_area_cm2_HR) %>% bold_p(t = .05)
+tbl9 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = sat_area_cm2_ind_HR) %>% bold_p(t = .05)
+tbl10 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ total_fat_area_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = total_fat_area_HR) %>% bold_p(t = .05)
+tbl11 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ total_fat_area_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = total_fat_area_ind_HR) %>% bold_p(t = .05)
+tbl12 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ muscle_mean_hu_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = muscle_mean_hu_HR) %>% bold_p(t = .05)
+tbl13 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ v_s_ratio_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = v_s_ratio_HR) %>% bold_p(t = .05)
+
+tbl2 <- tbl_stack(list(tbl2, tbl3, tbl4, tbl5,
+               tbl6, tbl7, tbl8, tbl9, tbl10,
+               tbl11, tbl12, tbl13))
+
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+Adjusted for ascites
+```{r}
+coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ vat_area_cm2_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_HR) %>% bold_p(t = .05)
+coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ vat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = vat_area_cm2_ind_HR) %>% bold_p(t = .05)
 ```
 Difficulty to decide if indexed data is better -> Will create groups.  
 <br>
 
 ***
 
-<br>
-
-# Make group
-## Make group : tertile
-
-```{r tertile}
-adipose_data <- adipose_data %>% 
-  mutate(tertile = ntile(muscle_area_cm2, 3)) %>% 
-  mutate(tert_muscle_area_cm2 = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_muscle_area_cm2 = factor(tert_muscle_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(muscle_area_cm2_ind, 3)) %>% 
-  mutate(tert_muscle_area_cm2_ind = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_muscle_area_cm2_ind = factor(tert_muscle_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(imat_area_cm2, 3)) %>% 
-  mutate(tert_imat_area_cm2 = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_imat_area_cm2 = factor(tert_imat_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(imat_area_cm2_ind, 3)) %>% 
-  mutate(tert_imat_area_cm2_ind = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_imat_area_cm2_ind = factor(tert_imat_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(vat_area_cm2, 3)) %>% 
-  mutate(tert_vat_area_cm2 = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_vat_area_cm2 = factor(tert_vat_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(vat_area_cm2_ind, 3)) %>% 
-  mutate(tert_vat_area_cm2_ind = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_vat_area_cm2_ind = factor(tert_vat_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(sat_area_cm2, 3)) %>% 
-  mutate(tert_sat_area_cm2 = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_sat_area_cm2 = factor(tert_sat_area_cm2, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(sat_area_cm2_ind, 3)) %>% 
-  mutate(tert_sat_area_cm2_ind = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_sat_area_cm2_ind = factor(tert_sat_area_cm2_ind, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(total_fat_area, 3)) %>% 
-  mutate(tert_total_fat_area = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_total_fat_area = factor(tert_total_fat_area, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(total_fat_area_ind, 3)) %>% 
-  mutate(tert_total_fat_area_ind = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_total_fat_area_ind = factor(tert_total_fat_area_ind, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(muscle_mean_hu, 3)) %>% 
-  mutate(tert_muscle_mean_hu = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_muscle_mean_hu = factor(tert_muscle_mean_hu, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(imat_mean_hu, 3)) %>% 
-  mutate(tert_imat_mean_hu = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_imat_mean_hu = factor(tert_imat_mean_hu, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(muscle_hu_sd, 3)) %>% 
-  mutate(tert_muscle_hu_sd = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_muscle_hu_sd = factor(tert_muscle_hu_sd, levels = c("Low", "Medium", "High"))) %>% 
-  mutate(tertile = ntile(v_s_ratio, 3)) %>% 
-  mutate(tert_v_s_ratio = case_when(
-    tertile == 1 ~ "Low",
-    tertile == 2 ~ "Medium",
-    tertile == 3 ~ "High",
-  ), 
-  tert_v_s_ratio = factor(tert_v_s_ratio, levels = c("Low", "Medium", "High"))) %>% 
-  select(-tertile)
-```
- Here an example of tertiles
-```{r}
-adipose_data %>% 
-  # pivot_longer()
-  ggplot(aes(x= tert_muscle_area_cm2, y = muscle_area_cm2))+
-  geom_boxplot()
-```
-<br>
-
-## Make group : Mclust
-clusters_non_ind, muscle_mean_hu and imat_mean_hu are forced to make 3 group when it would give only 1 group by mclust - decide on 3 groups to compare with tertiles group and see what is more meaningful.
-
-```{r cluster}
-clust_data <- adipose_data %>% 
-  select(id, muscle_area_cm2, 
-         imat_area_cm2,
-         vat_area_cm2,
-         sat_area_cm2,
-         total_fat_area,
-         muscle_mean_hu,                    
-         imat_mean_hu,
-         muscle_hu_sd, 
-         v_s_ratio)
-
-set.seed(123)
-clust <- Mclust(scale(
-  clust_data[,c(2:ncol(clust_data))]
-  ), G = 3)
-summary(clust)
-clust_data$clusters_non_ind <- clust$classification
-clust_data$clusters_non_ind <- factor(clust_data$clusters_non_ind,
-                                           levels = c(2, 3, 1),
-                                           labels = c("low", "mid", "high"))
-clust_data <- clust_data %>% mutate(clusters_non_ind = factor(clusters_non_ind, levels = c("low", "mid", "high")))
-clust_data %>% 
-  pivot_longer(cols = -c(id, clusters_non_ind), names_to = "name", values_to = "value") %>% 
-  ggplot(aes(x=id, y=value, group=name,  color=name))+
-  geom_boxplot()+
-  facet_grid(.~ clusters_non_ind)
-
-adipose_data <- 
-  full_join(adipose_data, clust_data %>% select(id, starts_with("clusters_")), by = "id")
-```
-
-```{r}
-clust_data <- adipose_data %>% 
-  select(id, muscle_area_cm2, muscle_area_cm2_ind, 
-         imat_area_cm2, imat_area_cm2_ind,
-         vat_area_cm2, vat_area_cm2_ind,
-         sat_area_cm2, sat_area_cm2_ind,
-         total_fat_area, total_fat_area_ind,
-         muscle_mean_hu,                    
-         imat_mean_hu,
-         muscle_hu_sd, 
-         v_s_ratio)
-
-clust <- Mclust(clust_data$muscle_area_cm2)
-summary(clust)
-clust_data$clusters_muscle_area_cm2 <- clust$classification
-clust_data$clusters_muscle_area_cm2 <- factor(clust_data$clusters_muscle_area_cm2,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_muscle_area_cm2, y=muscle_area_cm2))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$muscle_area_cm2_ind)
-summary(clust)
-clust_data$clusters_muscle_area_cm2_ind <- clust$classification
-clust_data$clusters_muscle_area_cm2_ind <- factor(clust_data$clusters_muscle_area_cm2_ind,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_muscle_area_cm2_ind, y=muscle_area_cm2_ind))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$imat_area_cm2)
-summary(clust)
-clust_data$clusters_imat_area_cm2 <- clust$classification
-clust_data$clusters_imat_area_cm2 <- factor(clust_data$clusters_imat_area_cm2,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_imat_area_cm2, y=imat_area_cm2))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$imat_area_cm2_ind)
-summary(clust)
-clust_data$clusters_imat_area_cm2_ind <- clust$classification
-clust_data$clusters_imat_area_cm2_ind <- factor(clust_data$clusters_imat_area_cm2_ind,
-                                           levels = c(1, 2, 3, 4),
-                                           labels = c("low", "mid-low", "mid_high", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_imat_area_cm2_ind, y=imat_area_cm2_ind))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$vat_area_cm2)
-summary(clust)
-clust_data$clusters_vat_area_cm2 <- clust$classification
-clust_data$clusters_vat_area_cm2 <- factor(clust_data$clusters_vat_area_cm2,
-                                           levels = c(1, 2, 3, 4, 5),
-                                           labels = c("low", "mid-low", "mid", "mid-high", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_vat_area_cm2, y=vat_area_cm2))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$vat_area_cm2_ind)
-summary(clust)
-clust_data$clusters_vat_area_cm2_ind <- clust$classification
-clust_data$clusters_vat_area_cm2_ind <- factor(clust_data$clusters_vat_area_cm2_ind,
-                                           levels = c(1, 2, 3, 4, 5),
-                                           labels = c("low", "mid-low", "mid", "mid-high", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_vat_area_cm2_ind, y=vat_area_cm2_ind))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$sat_area_cm2)
-summary(clust)
-clust_data$clusters_sat_area_cm2 <- clust$classification
-clust_data$clusters_sat_area_cm2 <- factor(clust_data$clusters_sat_area_cm2,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_sat_area_cm2, y=sat_area_cm2))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$sat_area_cm2_ind)
-summary(clust)
-clust_data$clusters_sat_area_cm2_ind <- clust$classification
-clust_data$clusters_sat_area_cm2_ind <- factor(clust_data$clusters_sat_area_cm2_ind,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_sat_area_cm2_ind, y=sat_area_cm2_ind))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$total_fat_area)
-summary(clust)
-clust_data$clusters_total_fat_area <- clust$classification
-clust_data$clusters_total_fat_area <- factor(clust_data$clusters_total_fat_area,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_total_fat_area, y=total_fat_area))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$total_fat_area_ind)
-summary(clust)
-clust_data$clusters_total_fat_area_ind <- clust$classification
-clust_data$clusters_total_fat_area_ind <- factor(clust_data$clusters_total_fat_area_ind,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_total_fat_area_ind, y=total_fat_area_ind))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$muscle_mean_hu, G = 3)
-summary(clust)
-clust_data$clusters_muscle_mean_hu <- clust$classification
-clust_data$clusters_muscle_mean_hu <- factor(clust_data$clusters_muscle_mean_hu,
-                                           levels = c(1, 2, 3),
-                                           labels = c("low", "mid", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_muscle_mean_hu, y=muscle_mean_hu))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$imat_mean_hu, G = 3)
-summary(clust)
-clust_data$clusters_imat_mean_hu <- clust$classification
-clust_data$clusters_imat_mean_hu <- factor(clust_data$clusters_imat_mean_hu,
-                                           levels = c(1, 2, 3),
-                                           labels = c("low", "mid", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_imat_mean_hu, y=imat_mean_hu))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$muscle_hu_sd)
-summary(clust)
-clust_data$clusters_muscle_hu_sd <- clust$classification
-clust_data$clusters_muscle_hu_sd <- factor(clust_data$clusters_muscle_hu_sd,
-                                           levels = c(1, 2),
-                                           labels = c("low", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_muscle_hu_sd, y=muscle_hu_sd))+
-  geom_boxplot()
-
-clust <- Mclust(clust_data$v_s_ratio)
-summary(clust)
-clust_data$clusters_v_s_ratio <- clust$classification
-clust_data$clusters_v_s_ratio <- factor(clust_data$clusters_v_s_ratio,
-                                           levels = c(1, 2, 3, 4, 5),
-                                           labels = c("mid", "low", "mid-low", "mid-high", "high"))
-clust_data %>% 
-  ggplot(aes(x=clusters_v_s_ratio, y=v_s_ratio))+
-  geom_boxplot()
-
-adipose_data <- 
-  full_join(adipose_data, clust_data %>% select(id, starts_with("clusters_")), by = "id")
-
-```
 <br>
 
 ## Visualize tertile and cluster on survival
