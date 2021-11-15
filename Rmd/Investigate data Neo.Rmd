@@ -445,10 +445,17 @@ tbl13 <-
     data =  adipose_data) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05)
+tbl14 <-
+  coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ v_s_ratio_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                label = list(v_s_ratio_HR ~ "V/S adjusted by ascites"),
+                 include = v_s_ratio_HR) %>% bold_p(t = .05)
 
 tbl2 <- tbl_stack(list(tbl2, tbl3, tbl4, tbl5,
                tbl6, tbl7, tbl8, tbl9, tbl10,
-               tbl11, tbl12, tbl13))
+               tbl11, tbl12, tbl13, tbl14))
 
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 ```
@@ -557,10 +564,17 @@ tbl13 <-
     data =  adipose_data) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05)
+tbl14 <-
+  coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ v_s_ratio_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + ascites,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 label = list(v_s_ratio_HR ~ "V/S adjusted by ascites"),
+                 include = v_s_ratio_HR) %>% bold_p(t = .05)
 
 tbl2 <- tbl_stack(list(tbl2, tbl3, tbl4, tbl5,
                tbl6, tbl7, tbl8, tbl9, tbl10,
-               tbl11, tbl12, tbl13))
+               tbl11, tbl12, tbl13, tbl14))
 
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 ```
