@@ -45,12 +45,15 @@ library(data.table)
 library(gtsummary)
 library(survival)
 library(survminer)
+library(VIM)
+library(mice)
 ```
 
 ```{r load test-retest}
-path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics", "CTbased adiposity")
+# path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics", "CTbased adiposity")
 
-adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds"))
+adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds")) %>% 
+  mutate(debulking_status = as.factor(debulking_status))
 ```
 
 <br>
@@ -64,6 +67,71 @@ Also the patient with missing TNM was removed.
 
 # Data summary
 ## Table 1. Patient characteristics overall
+
+```{r}
+adipose_data %>% 
+  select(age_at_diagnosis, year_of_diagnosis, raceeth, raceeth1,
+         treatment_type, 
+         debulking_status, tnm_cs_mixed_group_stage, ecog_pretrt, 
+         preDx_comorbidities, preDx_hypertension, preDx_diabetes_mellitus, 
+         preDx_hypercholesterolemia, preDx_cardiac_conditions, 
+         preDx_chronic_kidney_disease, 
+         ascites,
+         vital_new, os_time, 
+         has_the_patient_recurred, recurrence_time) %>% 
+  
+  tbl_summary(
+    type = list(year_of_diagnosis ~ "categorical", 
+                          all_dichotomous() ~ "categorical"), 
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+    ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+### Imputation
+```{r}
+aggr(adipose_data, col=c('navyblue','yellow'),
+                    numbers=TRUE, sortVars=TRUE,
+                    labels=names(adipose_data), cex.axis=.7,
+                    gap=3, ylab=c("Missing data","Pattern"))
+```
+
+
+```{r}
+adipose_data1 <- adipose_data %>% select(!contains("date"))
+
+imputed_Data <- mice(adipose_data1, m=5, maxit = 50, seed = 500)
+summary(imputed_Data)
+imputed_Data$imp$debulking_status
+#get complete data ( 2nd out of 5)
+completeData <- complete(imputed_Data,2)
+
+##### Plus #####
+# Also, if you wish to build models on all 5 datasets, you can do it in one go using with() command. You can also combine the result from these models and obtain a consolidated output using pool() command.
+#build predictive model
+fit <- with(data = iris.mis, exp = lm(Sepal.Width ~ Sepal.Length + Petal.Width)) 
+#combine results of all 5 models
+combine <- pool(fit)
+summary(combine)
+##### _____ #####
+
+
+
+
+# set.seed(1234)
+mice(adipose_data1$debulking_status, method = "polyreg")
+imp <- mice(adipose_data1[1:5])
+imp
+imp$imp
+
+imp1 <- mice(adipose_data1[1:5], 
+             formulas = list(weight ~ 0 + id + mrn + weight_unit + weight_comment)
+             )
+```
+
+
 
 ```{r}
 adipose_data %>% 
@@ -355,6 +423,633 @@ tbl2 <-
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 ```
 <br>
+<br>
+
+### Stratified by stage
+```{r}
+stage1_2 <- adipose_data %>% filter(tnm_cs_mixed_group_stage == "I-II")
+stage3 <- adipose_data %>% filter(tnm_cs_mixed_group_stage == "III")
+stage4 <- adipose_data %>% filter(tnm_cs_mixed_group_stage == "IV")
+```
+
+#### Recurrence
+
+<div class = "row">
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(recurrence_time, event = rec_event) ~ bmi_cat, data = stage1_2)
+ggsurvplot(myplot, data = stage1_2,
+           title = "Recurrence Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage1_2 %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage1_2$recurrence_time,
+                             event = stage1_2$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage1_2$recurrence_time,
+             event = stage1_2$rec_event) ~ raceeth1 + age_at_diagnosis + treatment_type + bmi_cat, data =  stage1_2) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(recurrence_time, event = rec_event) ~ bmi_cat, data = stage3)
+ggsurvplot(myplot, data = stage3,
+           title = "Recurrence Analysis in stage III",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage3 %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage3$recurrence_time,
+                             event = stage3$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage3$recurrence_time,
+             event = stage3$rec_event) ~ raceeth1 + age_at_diagnosis + treatment_type + bmi_cat, data =  stage3) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(recurrence_time, event = rec_event) ~ bmi_cat, data = stage4)
+ggsurvplot(myplot, data = stage4,
+           title = "Recurrence Analysis in stage IV",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage4 %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage4$recurrence_time,
+                             event = stage4$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage4$recurrence_time,
+             event = stage4$rec_event) ~ raceeth1 + age_at_diagnosis + treatment_type + bmi_cat, data =  stage4) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+</div>
+
+#### OS
+
+<div class = "row">
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(os_time, event = os_event) ~ bmi_cat, data = stage1_2)
+ggsurvplot(myplot, data = stage1_2,
+           title = "OS Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage1_2 %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage1_2$os_time,
+                             event = stage1_2$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage1_2$os_time,
+             event = stage1_2$os_event) ~ raceeth1 + age_at_diagnosis + treatment_type + bmi_cat, data =  stage1_2) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(os_time, event = os_event) ~ bmi_cat, data = stage3)
+ggsurvplot(myplot, data = stage3,
+           title = "OS Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage3 %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage3$os_time,
+                             event = stage3$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage3$os_time,
+             event = stage3$os_event) ~ raceeth1 + age_at_diagnosis + treatment_type + bmi_cat, data =  stage3) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(os_time, event = os_event) ~ bmi_cat, data = stage4)
+ggsurvplot(myplot, data = stage4,
+           title = "OS Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage4 %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage4$os_time,
+                             event = stage4$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage4$os_time,
+             event = stage4$os_event) ~ raceeth1 + age_at_diagnosis + treatment_type + bmi_cat, data =  stage4) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+</div>
+
+## KM ascites
+
+<div class = "row">
+<div class = "col-md-6">
+```{r}
+myplot <- survfit(Surv(recurrence_time, event = rec_event) ~ ascites, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "Recurrence Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- adipose_data %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, 
+                            tnm_cs_mixed_group_stage,
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$recurrence_time,
+                             event = adipose_data$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data$recurrence_time,
+             event = adipose_data$rec_event) ~ 
+          raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + bmi + ascites, 
+        data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-6">
+```{r}
+myplot <- survfit(Surv(os_time, event = os_event) ~ ascites, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- adipose_data %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, 
+                            tnm_cs_mixed_group_stage,
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data$os_time,
+                             event = adipose_data$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data$os_time,
+             event = adipose_data$os_event) ~ 
+          raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + bmi + ascites, 
+        data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+</div>
+
+### Stratified by stage
+#### Recurrence
+
+<div class = "row">
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(recurrence_time, event = rec_event) ~ ascites, data = stage1_2)
+ggsurvplot(myplot, data = stage1_2,
+           title = "Recurrence Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage1_2 %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage1_2$recurrence_time,
+                             event = stage1_2$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage1_2$recurrence_time,
+             event = stage1_2$rec_event) ~ 
+          raceeth1 + age_at_diagnosis + treatment_type + bmi + ascites, 
+        data =  stage1_2) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(recurrence_time, event = rec_event) ~ ascites, data = stage3)
+ggsurvplot(myplot, data = stage3,
+           title = "Recurrence Analysis in stage III",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage3 %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage3$recurrence_time,
+                             event = stage3$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage3$recurrence_time,
+             event = stage3$rec_event) ~ 
+          raceeth1 + age_at_diagnosis + treatment_type + bmi + ascites, 
+        data =  stage3) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(recurrence_time, event = rec_event) ~ ascites, data = stage4)
+ggsurvplot(myplot, data = stage4,
+           title = "Recurrence Analysis in stage IV",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage4 %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage4$recurrence_time,
+                             event = stage4$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage4$recurrence_time,
+             event = stage4$rec_event) ~ 
+          raceeth1 + age_at_diagnosis + treatment_type + bmi + ascites, 
+        data =  stage4) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+</div>
+
+#### OS
+
+<div class = "row">
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(os_time, event = os_event) ~ ascites, data = stage1_2)
+ggsurvplot(myplot, data = stage1_2,
+           title = "OS Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage1_2 %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage1_2$os_time,
+                             event = stage1_2$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage1_2$os_time,
+             event = stage1_2$os_event) ~ 
+          raceeth1 + age_at_diagnosis + treatment_type + bmi + ascites, 
+        data =  stage1_2) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(os_time, event = os_event) ~ ascites, data = stage3)
+ggsurvplot(myplot, data = stage3,
+           title = "OS Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage3 %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage3$os_time,
+                             event = stage3$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage3$os_time,
+             event = stage3$os_event) ~ 
+          raceeth1 + age_at_diagnosis + treatment_type + bmi + ascites,
+        data =  stage3) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+
+<div class = "col-md-4">
+```{r}
+myplot <- survfit(Surv(os_time, event = os_event) ~ ascites, data = stage4)
+ggsurvplot(myplot, data = stage4,
+           title = "OS Analysis in stage I-II",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+
+tbl1 <- stage4 %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, 
+                            treatment_type, #debulking_status, 
+                            bmi, ascites) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = stage4$os_time,
+                             event = stage4$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = stage4$os_time,
+             event = stage4$os_event) ~ 
+          raceeth1 + age_at_diagnosis + treatment_type + bmi + ascites, 
+        data =  stage4) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+</div>
+</div>
+
+<br>
+<br>
+
+***
+
 <br>
 
 # Pre-treatment CT-based measures of adiposity
@@ -2417,17 +3112,16 @@ tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable*
 
 
 
+<!-- <div class = "row"> -->
+<!-- <div class = "col-md-6"> -->
+<!-- ```{r} -->
 
+<!-- ``` -->
+<!-- </div> -->
 
+<!-- <div class = "col-md-6"> -->
+<!-- ```{r} -->
 
-
-
-
-
-
-
-
-
-
-
-
+<!-- ``` -->
+<!-- </div> -->
+<!-- </div> -->
