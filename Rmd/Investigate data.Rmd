@@ -46,7 +46,7 @@ library(data.table)
 library(gtsummary)
 library(survival)
 library(survminer)
-library(VIM)
+# library(VIM)
 library(mice)
 ```
 
@@ -91,52 +91,159 @@ adipose_data %>%
   modify_footnote(update = everything() ~ NA)
 ```
 
-### Imputation
+### Imputation for debulking_status
+
+Select the variables that may be important for predicting debulking status: 
+id, recurrence_time, rec_event, debulking_status,
+         weight, height_cms_, bmi_cat,
+         thickness, muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu, v_s_ratio, 
+         total_fat_area, total_fat_area_ind,
+         tnm_cs_mixed_group_stage, treatment_type,
+         age_at_diagnosis, histology,
+         raceeth1, grade_differentiation,
+         starts_with("preDx"), starts_with("postDx")
+
 ```{r}
-aggr(adipose_data, col=c('navyblue','yellow'),
-                    numbers=TRUE, sortVars=TRUE,
-                    labels=names(adipose_data), cex.axis=.7,
-                    gap=3, ylab=c("Missing data","Pattern"))
+data <- adipose_data %>% 
+  select(id, recurrence_time, rec_event, debulking_status,
+         weight, height_cms_, bmi_cat,
+         thickness, muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         muscle_mean_hu, v_s_ratio, 
+         total_fat_area, total_fat_area_ind,
+         tnm_cs_mixed_group_stage, treatment_type,
+         age_at_diagnosis, histology,
+         raceeth1, grade_differentiation,
+         starts_with("preDx"), starts_with("postDx")
+  
+)
+nonimp_cox_model <-
+  coxph(Surv(recurrence_time, rec_event) ~ 
+          raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + bmi_cat, 
+        data =  adipose_data)
+nonimp_cox_model
+Hazard <- nelsonaalen(data, recurrence_time, rec_event)
+dataset <- data.frame(data, Hazard)
+```
+
+Start imputation to look at matrix
+```{r}
+Cox.imp <- mice(dataset, m=1, maxit=0, seed=123, printFlag=F)
+# summary(Cox.imp)
+Pred <- Cox.imp$predictorMatrix
+# Pred["debulking", "recurrence_time"] <- 0
+Pred
+```
+
+id is used and treatment_type IS NOT.
+```{r}
+Pred[, "id"] <- 0
+Pred[, "treatment_type"] <- 1
+Pred["treatment_type", "treatment_type"] <- 0
+Pred
+```
+
+Imputation and cox regression model on imputed data using the new predictor matrix.
+```{r}
+# Start imputations using mice
+Cox.imp <- mice(dataset, m=5, maxit=50, 
+                predictorMatrix=Pred,
+                seed=123, printFlag=F)
+check1 <- with(data = Cox.imp,
+       exp = coxph(
+         Surv(recurrence_time, rec_event) ~ 
+          raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + bmi_cat
+       ))
+pool(check1)$pooled
+```
+
+Do m = 10 (how to choose is explained in https://www.ebpi.uzh.ch/dam/jcr:dc0cef17-29c7-4e61-8d33-e690561ab7ae/mi_intro20191001.pdf depends of the fmi. The max fmi = 0.1 that we multiply by 100)
+```{r}
+Cox.imp <- mice(dataset, m=34, maxit=50, 
+                predictorMatrix=Pred,
+                seed=123, printFlag=F)
+fit.Cox <-
+  with(data = Cox.imp,
+       exp = coxph(
+         Surv(recurrence_time, rec_event) ~ 
+          raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + bmi_cat
+       ))
+summary(pool(fit.Cox), conf.int = TRUE, exponentiate = TRUE) %>%
+  kableExtra::kable() %>%
+  kableExtra::kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
+```
+
+Above results are exponentiated (imputed data).  
+As a reminder before imputation results are :
+```{r}
+nonimp_cox_model
+```
+
+Complete the data and merge with original
+```{r}
+imputed_data <- complete(Cox.imp, include = FALSE) %>% 
+  rename(imp_debulking_status = debulking_status)
+
+adipose_data <- 
+  full_join(adipose_data, imputed_data %>% 
+              select(id, starts_with("imp_")), 
+            by = "id") 
 ```
 
 
-```{r}
-adipose_data1 <- adipose_data %>% 
-  select(-c(ecog_posttrt, ecog_recurr, has_the_patient_recurredafter_surg,
-            contains("date"), contains("months"), contains("age")),
-         age_at_surgery)
 
-imputed_Data <- mice(adipose_data1, m=5, maxit = 50, seed = 500)
-# summary(imputed_Data)
-# table(imputed_Data$imp$debulking_status[1])
-```
 
-Proportion of debulking status in the imputed data
-```{r}
-prop.table(table(imputed_Data$imp$debulking_status[4]))*100
-#get complete data ( 2nd out of 5)
-completeData <- complete(imputed_Data,4)
 
-##### EXTRA #####
-# Also, if you wish to build models on all 5 datasets, 
-# you can do it in one go using with() command. 
-# You can also combine the result from these models and obtain 
-# a consolidated output using pool() command.
-#build predictive model
-# fit <- with(data = iris.mis, exp = lm(Sepal.Width ~ Sepal.Length + Petal.Width)) 
-#combine results of all 5 models
-# combine <- pool(fit)
-# summary(combine)
-##### _____ #####
 
-adipose_data <- adipose_data %>% 
-  mutate(mrn = as.character(mrn)) %>%
-  select(-debulking_status) %>% 
-  full_join(.,
-            completeData %>% 
-              select(mrn, debulking_status),
-            by = "mrn")
-```
+
+
+
+
+
+
+# ```{r}
+# adipose_data1 <- adipose_data %>% 
+#   select(-c(ecog_posttrt, ecog_recurr, has_the_patient_recurredafter_surg,
+#             contains("date"), contains("months"), contains("age")),
+#          age_at_surgery)
+# 
+# imputed_Data <- mice(adipose_data1, m=5, maxit = 50, seed = 500)
+# # summary(imputed_Data)
+# # table(imputed_Data$imp$debulking_status[1])
+# ```
+
+<!-- Proportion of debulking status in the imputed data -->
+# ```{r}
+# prop.table(table(imputed_Data$imp$debulking_status[4]))*100
+# #get complete data ( 2nd out of 5)
+# completeData <- complete(imputed_Data,4)
+# 
+# ##### EXTRA #####
+# # Also, if you wish to build models on all 5 datasets, 
+# # you can do it in one go using with() command. 
+# # You can also combine the result from these models and obtain 
+# # a consolidated output using pool() command.
+# #build predictive model
+# # fit <- with(data = iris.mis, exp = lm(Sepal.Width ~ Sepal.Length + Petal.Width)) 
+# #combine results of all 5 models
+# # combine <- pool(fit)
+# # summary(combine)
+# ##### _____ #####
+# 
+# adipose_data <- adipose_data %>% 
+#   mutate(mrn = as.character(mrn)) %>%
+#   select(-debulking_status) %>% 
+#   full_join(.,
+#             completeData %>% 
+#               select(mrn, debulking_status),
+#             by = "mrn")
+# ```
 
 
 New table:
@@ -144,7 +251,8 @@ New table:
 adipose_data %>% 
   select(age_at_diagnosis, year_of_diagnosis, raceeth, raceeth1,
          treatment_type, 
-         debulking_status, tnm_cs_mixed_group_stage, ecog_pretrt, 
+         debulking_status, imp_debulking_status,
+         tnm_cs_mixed_group_stage, ecog_pretrt, 
          preDx_comorbidities, preDx_hypertension, preDx_diabetes_mellitus, 
          preDx_hypercholesterolemia, preDx_cardiac_conditions, 
          preDx_chronic_kidney_disease, 
