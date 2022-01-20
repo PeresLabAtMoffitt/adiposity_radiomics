@@ -28,7 +28,7 @@ adipose_data <- left_join(radiomics, clinical_data,
   # Eight patients were excluded due to coverage artifacts
   filter(is.na(should_exclude)) %>% 
   # Eight patients were excluded due to incomplete or missing CT images 
-  filter(!is.na(muscle_area_cm2), !is.na(tnm_cs_mixed_group_stage)) %>% 
+  filter(!is.na(muscle_area_cm2)) %>% 
   mutate(mrn = as.character(mrn)) %>% 
   # Create variable
   mutate(bmi = weight / (height_m_ * height_m_)) %>% 
@@ -57,7 +57,9 @@ adipose_data <- left_join(radiomics, clinical_data,
     str_detect(ascites, "moderate")        ~ "moderate",
     str_detect(ascites, "severe")          ~ "severe",
     str_detect(ascites, "mild")            ~ "mild"
-  ))
+  )) %>% 
+  mutate(debulking_status = as.factor(debulking_status)) %>% 
+  mutate(raceeth1 = factor(raceeth1, levels = c("NHWhite", "Others")))
 
 adipose_data %>% nrow()
 
@@ -90,15 +92,6 @@ adipose_data <- adipose_data %>%
          v_s_ratio_HR = v_s_ratio / v_s_ratio_SD)
 
 
-
-
-
-
-
-
-
-
-
-
-
 write_rds(adipose_data, "adipose_data.rds")
+
+# End cleaning
