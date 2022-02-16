@@ -30,15 +30,38 @@ adipose_data <- left_join(radiomics, clinical_data,
   # Eight patients were excluded due to incomplete or missing CT images 
   filter(!is.na(muscle_area_cm2)) %>% 
   mutate(mrn = as.character(mrn)) %>% 
+  mutate(weight_kg = case_when(
+    weight_unit == "kg" |
+      weight_unit == "Kg"           ~ weight,
+    weight_unit == "lbs"            ~ weight / 2.205
+  )) %>% 
   # Create variable
-  mutate(bmi = weight / (height_m_ * height_m_)) %>% 
+  mutate(bmi = weight_kg / (height_m_ * height_m_)) %>% 
   mutate(bmi_cat = case_when(
     bmi < 25                    ~ "Underweight and normal weight",
     bmi >= 25 &
       bmi < 30                  ~ "Overweight",
     bmi >= 30                   ~ "Obese"
   )) %>%
-  mutate(bmi_cat = factor(bmi_cat, levels = c("Underweight and normal weight", "Overweight", "Obese"))) %>% 
+  mutate(bmi_cat = factor(bmi_cat, levels = c("Underweight and normal weight", "Overweight", "Obese")))  %>% 
+  mutate(bmi_cat2 = case_when(
+    bmi < 25                                         ~ "<25",
+    bmi >= 25 &
+      bmi < 30                                       ~ "25-29",
+    bmi >= 30 &
+      bmi < 35                                       ~ "30-34",
+    bmi >= 35                                        ~ "≥35"
+  )) %>% 
+  mutate(bmi_cat2 = factor(bmi_cat2, levels = c("<25", "25-29", "30-34", "≥35")))  %>% 
+  mutate(SMI = muscle_area_cm2 / (height_m_ * height_m_)) %>% 
+  mutate(sarcopenia = case_when(
+    SMI <= 38.73                                     ~ "Yes",
+    TRUE                                             ~ "No"
+  )) %>% 
+  mutate(martin = case_when(
+    SMI < 41                                         ~ "Sarcopenia",
+    TRUE                                             ~ "No sarcopenia"
+  ))%>% 
   mutate(tnm_cs_mixed_group_stage = case_when(
     tnm_cs_mixed_group_stage == 1 |
       tnm_cs_mixed_group_stage == 2           ~ "I-II",
@@ -51,6 +74,7 @@ adipose_data <- left_join(radiomics, clinical_data,
     raceeth == "White Non-Hispanic"        ~ "NHWhite",
     TRUE                                   ~ "Others"
   )) %>% 
+  mutate(raceeth1 = factor(raceeth1, levels = c("NHWhite", "Others"))) %>% 
   mutate(ascites = case_when(
     is.na(ascites)                         ~ "absence",
     str_detect(ascites, "tumor")           ~ "absence",
@@ -58,8 +82,11 @@ adipose_data <- left_join(radiomics, clinical_data,
     str_detect(ascites, "severe")          ~ "severe",
     str_detect(ascites, "mild")            ~ "mild"
   )) %>% 
-  mutate(debulking_status = as.factor(debulking_status)) %>% 
-  mutate(raceeth1 = factor(raceeth1, levels = c("NHWhite", "Others")))
+  mutate(ascites2 = case_when(
+    str_detect(ascites, "absence")                   ~ "absence",
+    str_detect(ascites, "moderate|severe|mild")      ~ "presence"
+  )) %>% 
+  mutate(debulking_status = as.factor(debulking_status))
 
 adipose_data %>% nrow()
 
