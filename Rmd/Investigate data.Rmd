@@ -50,7 +50,7 @@ library(survminer)
 library(mice)
 ```
 
-```{r load test-retest}
+```{r load}
 adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds"))
 ```
 
@@ -239,6 +239,8 @@ adipose_data <-
     imp_bmi >= 30                   ~ "Obese"
   )) %>% 
   mutate(imp_bmi_cat = factor(imp_bmi_cat, levels = c("Underweight and normal weight", "Overweight", "Obese")))
+
+# write_rds(adipose_data, "imputed_adipose_data.rds")
 ```
 
 

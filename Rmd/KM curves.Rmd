@@ -47,8 +47,11 @@ library(survminer)
 ```
 
 ```{r load data}
-adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds"))
+adipose_data <- read_rds(paste0(here::here(), "/imputed_adipose_data.rds"))
+```
 
+
+```{r tertile}
 adipose_data <- adipose_data %>% 
   mutate(tertile = ntile(muscle_area_cm2, 3)) %>% 
   mutate(tert_muscle_area_cm2 = case_when(
@@ -155,7 +158,7 @@ adipose_data <- adipose_data %>%
 
 # Recurrence
 
-The adjusted curves (second) are adjusted by ` raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type`.
+The adjusted curves (second) are adjusted by ` raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status + treatment_type`.  
 NOT adjusted by `treatment_type` in stratified treatment.
 
 ## Overall
@@ -184,12 +187,13 @@ ggsurvplot(surv_model, data = adipose_data,
 adipose_data_frame <- adipose_data %>% as.data.frame()
 fit <- 
   coxph(Surv(time = recurrence_time, event = rec_event) ~ 
-          tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type, 
+          tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status + treatment_type, 
         data = adipose_data_frame)
 ggadjustedcurves(fit, data = adipose_data_frame, 
                  method = "average", 
                  variable = "tert_imat_area_cm2",
-                 palette = c("deepskyblue", "darkolivegreen3", "blue4")
+                 palette = c("deepskyblue", "darkolivegreen3", "blue4"),
+                 xlim = c(0, 85)
                  )
 ```
 
@@ -215,6 +219,7 @@ ggsurvplot(surv_model, data = adipose_data_neo,
            legend.title = "",
            legend.labs = c("Low", "Medium", "High"),
            palette = c("deepskyblue", "darkolivegreen3", "blue4"), # navy, teal and then kind of a darker lime green
+           xlim = c(0, 125),
            pval = TRUE,
            pval.coord = c(0, 0.1),
            conf.int = FALSE,
@@ -224,12 +229,13 @@ ggsurvplot(surv_model, data = adipose_data_neo,
 adipose_data_neo_frame <- adipose_data_neo %>% as.data.frame()
 fit <- 
   coxph(Surv(time = recurrence_time, event = rec_event) ~ 
-          tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage, 
+          tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
         data = adipose_data_neo_frame)
 ggadjustedcurves(fit, data = adipose_data_neo_frame, 
                  method = "average", 
                  variable = "tert_imat_area_cm2",
-                 palette = c("deepskyblue", "darkolivegreen3", "blue4")
+                 palette = c("deepskyblue", "darkolivegreen3", "blue4"),
+                 xlim = c(0, 85)
                  )
 ```
 
@@ -256,6 +262,7 @@ ggsurvplot(surv_model, data = adipose_data_surg,
            legend.title = "",
            legend.labs = c("Low", "Medium", "High"),
            palette = c("deepskyblue", "darkolivegreen3", "blue4"), # navy, teal and then kind of a darker lime green
+           xlim = c(0, 125),
            pval = TRUE,
            pval.coord = c(0, 0.1),
            conf.int = FALSE,
@@ -278,6 +285,7 @@ ggsurvplot(surv_model, data = a,
            legend.title = "",
            # legend.labs = c("Low", "Medium", "High"),
            # palette = c("deepskyblue", "darkolivegreen3", "blue4"), # navy, teal and then kind of a darker lime green
+           xlim = c(0, 125),
            pval = TRUE,
            pval.coord = c(0, 0.1),
            conf.int = FALSE,
@@ -300,6 +308,7 @@ ggsurvplot(surv_model, data = a,
            legend.title = "",
            # legend.labs = c("Low", "Medium", "High"),
            # palette = c("deepskyblue", "darkolivegreen3", "blue4"), # navy, teal and then kind of a darker lime green
+           xlim = c(0, 125),
            pval = TRUE,
            pval.coord = c(0, 0.1),
            conf.int = FALSE,
@@ -309,12 +318,13 @@ ggsurvplot(surv_model, data = a,
 adipose_data_surg_frame <- adipose_data_surg %>% as.data.frame()
 fit <- 
   coxph(Surv(time = recurrence_time, event = rec_event) ~ 
-          tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage, 
+          tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
         data = adipose_data_surg_frame)
 ggadjustedcurves(fit, data = adipose_data_surg_frame, 
                  method = "average", 
                  variable = "tert_imat_area_cm2",
-                 palette = c("deepskyblue", "darkolivegreen3", "blue4")
+                 palette = c("deepskyblue", "darkolivegreen3", "blue4"),
+                 xlim = c(0, 85)
                  )
 ```
 
