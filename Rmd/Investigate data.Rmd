@@ -14364,6 +14364,148 @@ adipose_data_neo <- adipose_data %>%
   filter(treatment_type == "Upfront Neoadjuvant")
 ```
 
+# IX-0. Investigate BMI
+## 1. Investigate BMI
+## Complete case
+### KM BMI
+
+```{r echo=TRUE}
+# BMI cat grouping
+# (bmi_cat = case_when(
+#     bmi < 25                    ~ "Underweight and normal weight",
+#     bmi >= 25 &
+#       bmi < 30                  ~ "Overweight",
+#     bmi >= 30                   ~ "Obese"
+#   ))
+```
+
+```{r}
+mysurv <- Surv(adipose_data_neo$recurrence_time, event = adipose_data_neo$rec_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data_neo)
+ggsurvplot(myplot, data = adipose_data_neo,
+           title = "Recurrence Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage`
+```{r}
+tbl1 <- adipose_data_neo %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_neo$recurrence_time,
+                             event = adipose_data_neo$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_neo$recurrence_time,
+             event = adipose_data_neo$rec_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + bmi_cat, data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage + imp_debulking_status`
+```{r}
+tbl1 <- adipose_data_neo %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            imp_debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_neo$recurrence_time,
+                             event = adipose_data_neo$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_neo$recurrence_time,
+             event = adipose_data_neo$rec_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status + bmi_cat, data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+```{r}
+mysurv <- Surv(adipose_data_neo$os_time, event = adipose_data_neo$os_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data_neo)
+ggsurvplot(myplot, data = adipose_data_neo,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage`
+```{r}
+tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_neo$os_time,
+                             event = adipose_data_neo$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_neo$os_time,
+             event = adipose_data_neo$os_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + bmi_cat, data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage + imp_debulking_status`
+```{r}
+tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            imp_debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_neo$os_time,
+                             event = adipose_data_neo$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_neo$os_time,
+             event = adipose_data_neo$os_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status + bmi_cat, data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
+
+
+
 # IX-1. Pre-treatment CT-based measures of adiposity (continuous)
 ## 1. Imputed data
 ### Non adjusted for debulking
@@ -19192,6 +19334,138 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
 adipose_data_surg <- adipose_data %>% 
   filter(treatment_type == "Upfront Surgery")
 ```
+
+# X-0. Investigate BMI
+## Complete case
+### KM BMI
+
+```{r}
+mysurv <- Surv(adipose_data_surg$recurrence_time, event = adipose_data_surg$rec_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data_surg)
+ggsurvplot(myplot, data = adipose_data_surg,
+           title = "Recurrence Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage`
+```{r}
+tbl1 <- adipose_data_surg %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_surg$recurrence_time,
+                             event = adipose_data_surg$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_surg$recurrence_time,
+             event = adipose_data_surg$rec_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + bmi_cat, data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage + imp_debulking_status`
+```{r}
+tbl1 <- adipose_data_surg %>% select(rec_event, recurrence_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            imp_debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_surg$recurrence_time,
+                             event = adipose_data_surg$rec_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_surg$recurrence_time,
+             event = adipose_data_surg$rec_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status + bmi_cat, data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+```{r}
+mysurv <- Surv(adipose_data_surg$os_time, event = adipose_data_surg$os_event)
+myplot <- survfit(mysurv~bmi_cat, data = adipose_data_surg)
+ggsurvplot(myplot, data = adipose_data_surg,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("White Non-Hispanic", "Hispanic", "Black"),
+           # palette = c("#03051AFF", "blue", "red"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage`
+```{r}
+tbl1 <- adipose_data_surg %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_surg$os_time,
+                             event = adipose_data_surg$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_surg$os_time,
+             event = adipose_data_surg$os_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + bmi_cat, data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+
+`raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, treatment_type + imp_debulking_status`
+```{r}
+tbl1 <- adipose_data_surg %>% select(os_event, os_time,
+                            raceeth1, age_at_diagnosis, imp_tnm_cs_mixed_group_stage, 
+                            imp_debulking_status, 
+                            bmi, bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = adipose_data_surg$os_time,
+                             event = adipose_data_surg$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <- 
+  coxph(Surv(time = adipose_data_surg$os_time,
+             event = adipose_data_surg$os_event) ~ raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status + bmi_cat, data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05)
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
+
+
+
 
 # X-1. Pre-treatment CT-based measures of adiposity (continuous)
 ## 1. Imputed data
