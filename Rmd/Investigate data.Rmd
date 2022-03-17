@@ -17082,7 +17082,7 @@ coxph(Surv(time = acsites_excluded$os_time,
 
 
 ### Recurrence
-```{rl}
+```{r}
 tbl1 <- adipose_data_neo %>% select(rec_event, recurrence_time,
                                 tert_muscle_area_cm2, 
                                 raceeth1, age_at_diagnosis, 
