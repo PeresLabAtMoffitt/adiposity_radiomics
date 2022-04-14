@@ -460,22 +460,6 @@ tbl_merge(list(tbl1, tbl2, tbl3), tab_spanner = c("Mean (SD)", "Median", "Range"
 
 ## 3. Plots adiposity features
 ```{r, fig.width= 12, fig.height= 12}
-# adipose_data %>% 
-#   select(mrn, bmi_cat,
-#          "muscle_area_cm2", muscle_area_cm2_ind,
-#          imat_area_cm2, imat_area_cm2_ind,
-#          vat_area_cm2, vat_area_cm2_ind,
-#          sat_area_cm2, sat_area_cm2_ind,
-#          "total_fat_area", total_fat_area_ind,
-#          muscle_mean_hu,                    
-#          imat_mean_hu,
-#          muscle_hu_sd, v_s_ratio) %>% 
-#   pivot_longer(-c(mrn, bmi_cat)) %>% 
-#   ggplot(aes(x= name, y= value, color = bmi_cat))+
-#   geom_boxplot()+
-#   theme_minimal()+
-#   coord_flip()
-
 adipose_data %>% 
   select(mrn, bmi_cat,
          muscle_area_cm2, muscle_area_cm2_ind,
@@ -500,6 +484,153 @@ adipose_data %>%
   ggplot(aes(x= bmi_cat, y= value, color = bmi_cat))+
   geom_boxplot()+
   scale_color_viridis_d(option = "G", end = c(0.8))+
+  theme_classic()+
+  coord_flip()+
+  # facet_grid(cols = vars(name), scales = "free")
+  facet_wrap(.~ name, scales = "free", ncol = 2)
+
+adipose_data %>% 
+  select(mrn, race,
+         muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         total_fat_area, total_fat_area_ind,
+         muscle_mean_hu,                    
+         v_s_ratio) %>% 
+  pivot_longer(-c(mrn, race)) %>% 
+  mutate(name = factor(name, 
+                       levels = c(
+                         "muscle_area_cm2", "muscle_area_cm2_ind",
+                         "imat_area_cm2", "imat_area_cm2_ind",
+                         "vat_area_cm2", "vat_area_cm2_ind",
+                         "sat_area_cm2", "sat_area_cm2_ind",
+                         "total_fat_area", "total_fat_area_ind",
+                         "muscle_mean_hu",                    
+                         "v_s_ratio"
+                       ))) %>% 
+  filter(!is.na(race)) %>% 
+  ggplot(aes(x= race, y= value, color = race))+
+  geom_boxplot()+
+  scale_color_viridis_d(option = "D", end = c(0.8))+
+  theme_classic()+
+  coord_flip()+
+  # facet_grid(cols = vars(name), scales = "free")
+  facet_wrap(.~ name, scales = "free", ncol = 2)
+
+adipose_data %>% 
+  select(mrn, ethnicity,
+         muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         total_fat_area, total_fat_area_ind,
+         muscle_mean_hu,                    
+         v_s_ratio) %>% 
+  pivot_longer(-c(mrn, ethnicity)) %>% 
+  mutate(name = factor(name, 
+                       levels = c(
+                         "muscle_area_cm2", "muscle_area_cm2_ind",
+                         "imat_area_cm2", "imat_area_cm2_ind",
+                         "vat_area_cm2", "vat_area_cm2_ind",
+                         "sat_area_cm2", "sat_area_cm2_ind",
+                         "total_fat_area", "total_fat_area_ind",
+                         "muscle_mean_hu",                    
+                         "v_s_ratio"
+                       ))) %>% 
+  filter(!is.na(ethnicity)) %>% 
+  ggplot(aes(x= ethnicity, y= value, color = ethnicity))+
+  geom_boxplot()+
+  scale_color_viridis_d(option = "D", end = c(0.8))+
+  theme_classic()+
+  coord_flip()+
+  # facet_grid(cols = vars(name), scales = "free")
+  facet_wrap(.~ name, scales = "free", ncol = 2)
+
+adipose_data %>% 
+  select(mrn, raceeth,
+         muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         total_fat_area, total_fat_area_ind,
+         muscle_mean_hu,                    
+         v_s_ratio) %>% 
+  filter(raceeth != "Other/Unknown") %>% 
+  pivot_longer(-c(mrn, raceeth)) %>% 
+  mutate(name = factor(name, 
+                       levels = c(
+                         "muscle_area_cm2", "muscle_area_cm2_ind",
+                         "imat_area_cm2", "imat_area_cm2_ind",
+                         "vat_area_cm2", "vat_area_cm2_ind",
+                         "sat_area_cm2", "sat_area_cm2_ind",
+                         "total_fat_area", "total_fat_area_ind",
+                         "muscle_mean_hu",                    
+                         "v_s_ratio"
+                       ))) %>% 
+  filter(!is.na(raceeth)) %>% 
+  ggplot(aes(x= raceeth, y= value, color = raceeth))+
+  geom_boxplot()+
+  scale_color_viridis_d(option = "C", end = c(0.8))+
+  theme_classic()+
+  coord_flip()+
+  # facet_grid(cols = vars(name), scales = "free")
+  facet_wrap(.~ name, scales = "free", ncol = 2)+
+  stat_compare_means(label.x.npc = 0.5, label.y.npc = 0)
+
+adipose_data %>% 
+  select(mrn, raceeth1,
+         muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         total_fat_area, total_fat_area_ind,
+         muscle_mean_hu,                    
+         v_s_ratio) %>% 
+  pivot_longer(-c(mrn, raceeth1)) %>% 
+  mutate(name = factor(name, 
+                       levels = c(
+                         "muscle_area_cm2", "muscle_area_cm2_ind",
+                         "imat_area_cm2", "imat_area_cm2_ind",
+                         "vat_area_cm2", "vat_area_cm2_ind",
+                         "sat_area_cm2", "sat_area_cm2_ind",
+                         "total_fat_area", "total_fat_area_ind",
+                         "muscle_mean_hu",                    
+                         "v_s_ratio"
+                       ))) %>% 
+  filter(!is.na(raceeth1)) %>% 
+  ggplot(aes(x= raceeth1, y= value, color = raceeth1))+
+  geom_boxplot()+
+  scale_color_viridis_d(option = "C", end = c(0.8))+
+  theme_classic()+
+  coord_flip()+
+  # facet_grid(cols = vars(name), scales = "free")
+  facet_wrap(.~ name, scales = "free", ncol = 2)
+
+adipose_data %>% 
+  select(mrn, raceeth2,
+         muscle_area_cm2, muscle_area_cm2_ind,
+         imat_area_cm2, imat_area_cm2_ind,
+         vat_area_cm2, vat_area_cm2_ind,
+         sat_area_cm2, sat_area_cm2_ind,
+         total_fat_area, total_fat_area_ind,
+         muscle_mean_hu,                    
+         v_s_ratio) %>% 
+  pivot_longer(-c(mrn, raceeth2)) %>% 
+  mutate(name = factor(name, 
+                       levels = c(
+                         "muscle_area_cm2", "muscle_area_cm2_ind",
+                         "imat_area_cm2", "imat_area_cm2_ind",
+                         "vat_area_cm2", "vat_area_cm2_ind",
+                         "sat_area_cm2", "sat_area_cm2_ind",
+                         "total_fat_area", "total_fat_area_ind",
+                         "muscle_mean_hu",                    
+                         "v_s_ratio"
+                       ))) %>% 
+  filter(!is.na(raceeth2)) %>% 
+  ggplot(aes(x= raceeth2, y= value, color = raceeth2))+
+  geom_boxplot()+
+  scale_color_viridis_d(option = "C", end = c(0.8))+
   theme_classic()+
   coord_flip()+
   # facet_grid(cols = vars(name), scales = "free")
