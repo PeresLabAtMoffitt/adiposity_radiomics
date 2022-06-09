@@ -2985,6 +2985,18 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+
 #### HR : OS
 ```{r}
 tbl1 <- adipose_data %>% select(os_event, os_time,
@@ -3136,6 +3148,17 @@ coxph(Surv(time = acsites_excluded$os_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
@@ -4517,6 +4540,17 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status
+```{r}
+coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
 #### HR : OS
 ```{r}
 tbl1 <- adipose_data %>% select(os_event, os_time,
@@ -4668,6 +4702,17 @@ coxph(Surv(time = acsites_excluded$os_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status
+```{r}
+coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
@@ -7698,8 +7743,19 @@ coxph(Surv(time = acsites_excluded$os_time,
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
-<br>
 
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+<br>
 
 ### Recurrence
 ```{r HR tertiles recurrence adj debul}
@@ -8091,6 +8147,17 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + treatment_type + imp_debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -10937,6 +11004,18 @@ coxph(Surv(time = acsites_excluded$os_time,
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status
+```{r}
+coxph(Surv(time = adipose_data$os_time,
+         event = adipose_data$os_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
 <br>
 
 
@@ -11329,6 +11408,18 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status
+```{r}
+coxph(Surv(time = adipose_data$recurrence_time,
+         event = adipose_data$rec_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + debulking_status,
+    data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>% 
+  bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -13613,6 +13704,17 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$recurrence_time,
+         event = adipose_data_neo$rec_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
 #### HR : OS
 ```{r}
 tbl1 <- adipose_data_neo %>% select(os_event, os_time,
@@ -13777,6 +13879,17 @@ coxph(Surv(time = acsites_excluded$os_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$os_time,
+         event = adipose_data_neo$os_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -14272,6 +14385,18 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$recurrence_time,
+         event = adipose_data_neo$rec_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+<br>
+
 #### HR : OS
 ```{r}
 tbl1 <- adipose_data_neo %>% select(os_event, os_time,
@@ -14436,6 +14561,18 @@ coxph(Surv(time = acsites_excluded$os_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+<br>
+
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$os_time,
+         event = adipose_data_neo$os_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR + raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -15773,8 +15910,19 @@ coxph(Surv(time = acsites_excluded$os_time,
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
-<br>
 
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$os_time,
+         event = adipose_data_neo$os_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+<br>
 
 ### Recurrence
 ```{r}
@@ -16261,6 +16409,18 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$recurrence_time,
+         event = adipose_data_neo$rec_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -17592,6 +17752,17 @@ coxph(Surv(time = acsites_excluded$os_time,
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$os_time,
+         event = adipose_data_neo$os_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 +  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
 <br>
 
 
@@ -18080,6 +18251,17 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_neo$recurrence_time,
+         event = adipose_data_neo$rec_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 +  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -18703,6 +18885,17 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$recurrence_time,
+         event = adipose_data_surg$rec_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR +  raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
 #### HR : OS
 ```{r}
 tbl1 <- adipose_data_surg %>% select(os_event, os_time,
@@ -18854,6 +19047,17 @@ coxph(Surv(time = acsites_excluded$os_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$os_time,
+         event = adipose_data_surg$os_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR +  raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -19336,6 +19540,17 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$recurrence_time,
+         event = adipose_data_surg$rec_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR +  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
 #### HR : OS
 ```{r}
 tbl1 <- adipose_data_surg %>% select(os_event, os_time,
@@ -19487,6 +19702,17 @@ coxph(Surv(time = acsites_excluded$os_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = v_s_ratio_HR) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_HR
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$os_time,
+         event = adipose_data_surg$os_event) ~ muscle_area_cm2_HR + imat_area_cm2_HR + vat_area_cm2_HR + sat_area_cm2_ind_HR +  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(muscle_area_cm2_HR, imat_area_cm2_HR, vat_area_cm2_HR, sat_area_cm2_ind_HR)) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -20825,6 +21051,18 @@ coxph(Surv(time = acsites_excluded$os_time,
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$os_time,
+         event = adipose_data_surg$os_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 +  raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
 <br>
 
 
@@ -21313,6 +21551,18 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$recurrence_time,
+         event = adipose_data_surg$rec_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 +  raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
@@ -22646,6 +22896,18 @@ coxph(Surv(time = acsites_excluded$os_time,
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$os_time,
+         event = adipose_data_surg$os_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 +  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
 <br>
 
 
@@ -23134,6 +23396,18 @@ coxph(Surv(time = acsites_excluded$recurrence_time,
     data =  acsites_excluded) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_v_s_ratio) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+##### Model adjusted by tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2
+also adjusted by raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status
+```{r}
+coxph(Surv(time = adipose_data_surg$recurrence_time,
+         event = adipose_data_surg$rec_event) ~ tert_muscle_area_cm2 + tert_imat_area_cm2 + tert_vat_area_cm2 + tert_sat_area_cm2 +  raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status,
+    data =  adipose_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = c(tert_muscle_area_cm2, tert_imat_area_cm2, tert_vat_area_cm2, tert_sat_area_cm2)) %>%
+  bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 ```
 <br>
