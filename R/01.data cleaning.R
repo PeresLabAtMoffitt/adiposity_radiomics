@@ -17,8 +17,7 @@ radiomics <-
                     .name_repair = fct_name_repair) %>% 
   `colnames<-`(str_replace(colnames(.), "__", "_"))
 clinical_data <-
-  read_csv(paste0(path,"/dataset/ForDan_clinical.csv")) %>% 
-  select(-"...1")
+  read_csv(paste0(path,"/dataset/ForDan_clinical_modif_06092022.csv"))
 
 
 #################################################################### II ### Data cleaning ----

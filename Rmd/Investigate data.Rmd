@@ -63,6 +63,10 @@ adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds")) %>%
 
 Note: I excluded the patient noted in "should exclude" variable.  
 This exclude 2 out of the 3 patients with missing TNM.  
+
+`_ind variables were calculated by dividing the initial value by (height_m_ ^ 2)`
+`_HR variables were calculated by dividing the initial value by the SD overall patients`
+
 `SMI = muscle_area_cm2 / (height_m_ * height_m_)`  
 `sarcopenia is Yes when SMI ≤ 38.73 cm2/m2`  
 `martin is Yes when < 41 cm2/m2`
