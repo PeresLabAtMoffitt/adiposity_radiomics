@@ -2,7 +2,7 @@
 The project aim to evaluate pre-treatment adiposity features measured by computed tomography and clinical features in the survival of women with ovarian cancer.
 
 # Cleaning
-Then you can run the "01.data cleaning.R" script which does the clinical recoding/cleaning/create new variables.
+Run the "01.data cleaning.R" script which does the clinical recoding/cleaning/create new variables. This saves a rds file with cleaned data with new variables which is used by the Rmd to do the analyses.
 
 # Statistical analyses
 The Rmd files run the statistical analyses.
