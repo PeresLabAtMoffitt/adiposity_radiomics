@@ -393,21 +393,21 @@ write_rds(adipose_data, "imputed_plus_tertile_adipose_data.rds")
 ```
 
 ```{r}
-# var_label(adipose_data) <- list(age_at_diagnosis = "Age at diagnosis", 
-#                                 bmi_cat = "BMI - Categories", 
-#                                 imp_bmi_cat = "Imputed BMI - Categories", 
-#                                 treatment_type = "Treatment Type", 
-#                                 debulking_status = "Debulking status", 
-#                                 imp_debulking_status = "Imputed debulking status",
-#                                 tnm_cs_mixed_group_stage = "Stage", 
-#                                 imp_tnm_cs_mixed_group_stage = "Imputed stage",
-#                                 muscle_area_cm2_ind = "SMI (skeletal muscle index)", 
-#                                 imat_area_cm2 = "IMAT",
-#                                 vat_area_cm2 = "VAT", 
-#                                 sat_area_cm2 = "SAT",
-#                                 muscle_mean_hu = "SMR (skeletal muscle radiodensity)",
-#                                 total_fat_area = "TAT"
-# ) 
+var_label(adipose_data) <- list(age_at_diagnosis = "Age at diagnosis",
+                                bmi_cat = "BMI - Categories",
+                                imp_bmi_cat = "Imputed BMI - Categories",
+                                treatment_type = "Treatment Type",
+                                debulking_status = "Debulking status",
+                                imp_debulking_status = "Imputed debulking status",
+                                tnm_cs_mixed_group_stage = "Stage",
+                                imp_tnm_cs_mixed_group_stage = "Imputed stage",
+                                muscle_area_cm2_ind = "SMI (skeletal muscle index)",
+                                imat_area_cm2 = "IMAT",
+                                vat_area_cm2 = "VAT",
+                                sat_area_cm2 = "SAT",
+                                muscle_mean_hu = "SMR (skeletal muscle radiodensity)",
+                                total_fat_area = "TAT"
+)
 ```
 
 # 1. Table 1. Patient characteristics and body composition depots overall and by treatment type (neo vs. debulking) 
@@ -657,26 +657,33 @@ adipose_data %>%
          vat_area_cm2,
          sat_area_cm2,
          total_fat_area) %>% 
+  rename(c("SMI (skeletal muscle index)" = muscle_area_cm2_ind,
+           "IMAT" = imat_area_cm2,
+           "VAT" = vat_area_cm2,
+           "SAT" = sat_area_cm2,
+           "SMR (skeletal muscle radiodensity)" = muscle_mean_hu,
+           "TAT" = total_fat_area)) %>% 
   pivot_longer(-c(mrn, imp_bmi_cat)) %>% 
-  mutate(name = factor(name, 
+  mutate(name = factor(name,
                        levels = c(
-                         "muscle_area_cm2_ind",
-                         "muscle_mean_hu",                    
-                         "imat_area_cm2",
-                         "vat_area_cm2",
-                         "sat_area_cm2",
-                         "total_fat_area"
-                       ))) %>% 
+                         "SMI (skeletal muscle index)",
+                         "SMR (skeletal muscle radiodensity)",
+                         "IMAT",
+                         "VAT",
+                         "SAT",
+                         "TAT"
+                       ))) %>%
   filter(!is.na(imp_bmi_cat)) %>% 
   ggplot(aes(x= imp_bmi_cat, y= value, color = imp_bmi_cat))+
   geom_boxplot()+
   labs(x= NULL, y= "Body Composition Depot",
        color= "Imputed BMI category")+
   scale_color_viridis_d(option = "G", end = c(0.8))+
-  theme_classic()+
+  theme_classic()+ 
+  theme(legend.position="bottom")+
   coord_flip()+
   # facet_grid(cols = vars(name), scales = "free")
-  facet_wrap(.~ name, scales = "free", ncol = 2)
+  facet_wrap(.~ name, scales = "free_x", ncol = 2)
 ```
 <br>
 <br>
@@ -1571,263 +1578,273 @@ rm(model1)
 <br>
 
 ### Upfront Chemo
+
 ```{r}
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+adipose_stage1_3 <- adipose_data_neo %>% 
+  mutate(imp_tnm_cs_mixed_group_stage = case_when(
+    imp_tnm_cs_mixed_group_stage == "I-II"        ~ "I-III",
+    imp_tnm_cs_mixed_group_stage == "III"         ~ "I-III",
+    TRUE                                          ~ as.character(imp_tnm_cs_mixed_group_stage)
+  ))
+```
+
+```{r}
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 bmi_cat) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           bmi_cat + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = bmi_cat) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                bmi_cat + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
           as_tibble(exp(-1 * shapeParameter * coef(model2))), 
           as_tibble(exp(-1 * shapeParameter *confint(model2, level=0.95)))) 
 
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 imp_bmi_cat) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           imp_bmi_cat + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = imp_bmi_cat) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                imp_bmi_cat + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
           as_tibble(exp(-1 * shapeParameter * coef(model2))), 
           as_tibble(exp(-1 * shapeParameter *confint(model2, level=0.95)))) 
 
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 tert_muscle_area_cm2_ind, 
                                 raceeth1, age_at_diagnosis, 
                                 imp_tnm_cs_mixed_group_stage, 
                                 imp_debulking_status,
                                 treatment_type) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE, 
                    include = tert_muscle_area_cm2_ind) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           tert_muscle_area_cm2_ind + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_muscle_area_cm2_ind) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                tert_muscle_area_cm2_ind + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
           as_tibble(exp(-1 * shapeParameter * coef(model2))), 
           as_tibble(exp(-1 * shapeParameter *confint(model2, level=0.95)))) 
 
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 tert_imat_area_cm2, 
                                 raceeth1, age_at_diagnosis, 
                                 imp_tnm_cs_mixed_group_stage, 
                                 imp_debulking_status,
                                 treatment_type) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE, 
                    include = tert_imat_area_cm2) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                tert_imat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
           as_tibble(exp(-1 * shapeParameter * coef(model2))), 
           as_tibble(exp(-1 * shapeParameter *confint(model2, level=0.95)))) 
 
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 tert_vat_area_cm2, 
                                 raceeth1, age_at_diagnosis, 
                                 imp_tnm_cs_mixed_group_stage, 
                                 imp_debulking_status,
                                 treatment_type) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE, 
                    include = tert_vat_area_cm2) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                tert_vat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
           as_tibble(exp(-1 * shapeParameter * coef(model2))), 
           as_tibble(exp(-1 * shapeParameter *confint(model2, level=0.95)))) 
 
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 tert_sat_area_cm2, 
                                 raceeth1, age_at_diagnosis, 
                                 imp_tnm_cs_mixed_group_stage, 
                                 imp_debulking_status,
                                 treatment_type) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE, 
                    include = tert_sat_area_cm2) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                tert_sat_area_cm2 + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
           as_tibble(exp(-1 * shapeParameter * coef(model2))), 
           as_tibble(exp(-1 * shapeParameter *confint(model2, level=0.95)))) 
 
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 tert_total_fat_area, 
                                 raceeth1, age_at_diagnosis, 
                                 imp_tnm_cs_mixed_group_stage, 
                                 imp_debulking_status,
                                 treatment_type) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE, 
                    include = tert_total_fat_area) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           tert_total_fat_area + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = tert_total_fat_area) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                tert_total_fat_area + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
           as_tibble(exp(-1 * shapeParameter * coef(model2))), 
           as_tibble(exp(-1 * shapeParameter *confint(model2, level=0.95)))) 
 
-tbl1 <- adipose_data_neo %>% select(os_event, os_time,
+tbl1 <- adipose_stage1_3 %>% select(os_event, os_time,
                                 myosteatosis, 
                                 raceeth1, age_at_diagnosis, 
                                 imp_tnm_cs_mixed_group_stage, 
                                 imp_debulking_status,
                                 treatment_type) %>%
   tbl_uvregression(method = survival::coxph,
-                   y = (Surv(time = adipose_data_neo$os_time,
-                             event = adipose_data_neo$os_event)),
+                   y = (Surv(time = adipose_stage1_3$os_time,
+                             event = adipose_stage1_3$os_event)),
                    exponentiate = TRUE, 
                    include = myosteatosis) %>% 
   bold_labels() %>% italicize_levels() %>% 
   bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
 tbl2 <-
-  coxph(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+  coxph(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
           myosteatosis + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status,
-        data =  adipose_data_neo) %>%
+        data =  adipose_stage1_3) %>%
   tbl_regression(exponentiate = TRUE, 
                  include = myosteatosis) %>% bold_p(t = .05) %>% 
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
 
 print("AFT model")
-model2 <- survreg(Surv(time = adipose_data_neo$os_time,
-             event = adipose_data_neo$os_event) ~ 
+model2 <- survreg(Surv(time = adipose_stage1_3$os_time,
+             event = adipose_stage1_3$os_event) ~ 
                myosteatosis + raceeth1 + age_at_diagnosis + imp_tnm_cs_mixed_group_stage + imp_debulking_status, 
-                  data = adipose_data_neo,
+                  data = adipose_stage1_3,
                   dist="weibull")
 shapeParameter <- 1 / model2$scale
 bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model2)))),
