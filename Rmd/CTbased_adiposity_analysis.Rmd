@@ -389,6 +389,13 @@ adipose_data <- adipose_data %>%
     TRUE                                    ~ "No"
   ))
 
+adipose_data <- adipose_data %>% 
+  mutate(excluded_complete_case = case_when(
+    is.na(debulking_status)                   ~ "excluded",
+    is.na(tnm_cs_mixed_group_stage)           ~ "excluded",
+    TRUE                                      ~ "included"
+    ))
+
 write_rds(adipose_data, "imputed_plus_tertile_adipose_data.rds")
 ```
 
@@ -643,6 +650,25 @@ tbl6 <- adipose_data %>%
   bold_labels() %>% add_stat_label()
 tbl_stack(list(tbl1, tbl2, tbl4, tbl5, tbl3, tbl6))
 ```
+
+```{r}
+adipose_data %>% 
+  select(tert_imat_area_cm2, 
+         imp_bmi, imp_bmi_cat,
+         bmi, bmi_cat,
+         age_at_diagnosis,
+         preDx_comorbidities, preDx_hypertension, preDx_diabetes_mellitus, 
+         preDx_hypercholesterolemia, preDx_cardiac_conditions, 
+         preDx_chronic_kidney_disease,
+         
+         ) %>% 
+  tbl_summary(by = tert_imat_area_cm2,
+            statistic=list(all_continuous() ~ "{mean} / {median}"), 
+            digits = all_continuous() ~ 1
+            ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  add_p()
+```
 <br>
 <br>
 
@@ -693,6 +719,41 @@ adipose_data %>%
 <br>
 
 # Table 2 – Association of BMI and each body composition depot with PFS overall and by treatment type
+## Correlation
+```{r}
+a <- adipose_data %>% select(imp_bmi, bmi,
+         muscle_area_cm2_ind,
+         imat_area_cm2_ind,
+         vat_area_cm2_ind,
+         sat_area_cm2_ind,
+         muscle_mean_hu,
+         total_fat_area_ind)
+
+mat <- cor(a, use = "pairwise.complete.obs")
+mat %>% as.table()
+
+mat1 <- mat %>% as_tibble() %>% 
+  mutate(var = rownames(mat), .before=1) %>% 
+  filter(str_detect(var, "bmi")) %>% 
+  select(-c(contains("bmi")))
+mat1
+
+library(ggcorrplot)
+ggcorrplot(mat, hc.order = TRUE, method = "circle", 
+           # outline.col = "darkblue", # the outline of the circle or square
+           # hc.method = "complete",
+           type = "lower", # show the top half panel
+           lab = TRUE, # add correlation nbr
+           title = "Correlation between features",
+           show.legend = TRUE, legend.title = "Correlation", show.diag = FALSE,
+           # colors = viridis::inferno(n=3),
+           lab_col = "darkblue", lab_size = 3, # col and size of the correlation nbr
+           # p.mat = pmat, # Add correlation significance
+           sig.level = 0.05, insig = c("pch", "blank"), pch = 4, pch.col = "black", pch.cex = 10, 
+           tl.cex = 10, tl.col = "red", tl.srt = 40,
+           digits = 2
+)
+```
 
 ### HR Imputed data Adjusted for debulking status
 
@@ -2473,6 +2534,33 @@ bind_cols(as_tibble(names(exp(-1 * shapeParameter * coef(model1)))),
 
 # Table S4 – Association of BMI and each body composition depot with PFS and OS overall using the complete case dataset 
 Multivariable analyses are adjusted for `+ raceeth1 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + strata(debulking_status)`.  
+```{r}
+adipose_data %>% 
+  select(age_at_diagnosis, year_of_diagnosis, raceeth, raceeth1,
+         bmi, imp_bmi, bmi_cat, imp_bmi_cat, bmi_cat2,
+         treatment_type, 
+         debulking_status, imp_debulking_status,
+         tnm_cs_mixed_group_stage, imp_tnm_cs_mixed_group_stage,
+         ecog_pretrt, 
+         preDx_comorbidities, preDx_hypertension, preDx_diabetes_mellitus, 
+         preDx_hypercholesterolemia, preDx_cardiac_conditions, 
+         preDx_chronic_kidney_disease, 
+         ascites, ascites2, sarcopenia, martin,
+         myosteatosis,
+         vital_new, os_time, 
+         has_the_patient_progressed, pfs_time,
+         excluded_complete_case) %>% 
+  
+  tbl_summary(by= excluded_complete_case,
+              type = list(year_of_diagnosis ~ "categorical", 
+                          all_dichotomous() ~ "categorical"), 
+              statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+              digits = all_continuous() ~ 1
+  ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  add_p() %>% bold_p(t = .05) %>% 
+  modify_footnote(update = everything() ~ NA)
+```
 
 ### PFS
 ```{r HR tertiles PFS adj debul CS}
