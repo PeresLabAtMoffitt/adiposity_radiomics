@@ -74,8 +74,8 @@ adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds")) %>%
     debulking_status == "Complete"           ~ "Optimal",
     debulking_status == "Optimal"            ~ "Optimal",
     debulking_status == "Suboptimal"         ~ "Suboptimal"
-  ), debulking_status = factor(debulking_status, 
-                               levels = c("Suboptimal", "Optimal"))) #%>% 
+  ), debulking_status = factor(debulking_status,
+                               levels = c("Suboptimal", "Optimal"))) #%>%
   
   # mutate(vital_60months = case_when(
   #   vital_new == "Alive"                     ~ "Alive",
@@ -653,7 +653,17 @@ tbl_stack(list(tbl1, tbl2, tbl4, tbl5, tbl3, tbl6))
 
 ```{r}
 adipose_data %>% 
-  select(tert_imat_area_cm2, 
+   select(tert_imat_area_cm2, imat_area_cm2, treatment_type) %>% 
+   tbl_summary(by = treatment_type,
+             statistic=list(all_continuous() ~ "{min} - {max}"), 
+             digits = all_continuous() ~ 1
+             ) %>%  
+   bold_labels() %>% add_stat_label() %>% add_p()
+
+adipose_data %>% 
+  filter(treatment_type == "Upfront Surgery") %>% 
+  select(debulking_status, imp_debulking_status,
+         tert_imat_area_cm2, 
          imp_bmi, imp_bmi_cat,
          bmi, bmi_cat,
          age_at_diagnosis,
@@ -722,12 +732,12 @@ adipose_data %>%
 ## Correlation
 ```{r}
 a <- adipose_data %>% select(imp_bmi, bmi,
-         muscle_area_cm2_ind,
-         imat_area_cm2_ind,
-         vat_area_cm2_ind,
-         sat_area_cm2_ind,
+         muscle_area_cm2,
+         imat_area_cm2,
+         vat_area_cm2,
+         sat_area_cm2,
          muscle_mean_hu,
-         total_fat_area_ind)
+         total_fat_area)
 
 mat <- cor(a, use = "pairwise.complete.obs")
 mat %>% as.table()

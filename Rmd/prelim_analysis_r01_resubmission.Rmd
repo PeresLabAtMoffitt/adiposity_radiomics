@@ -1,0 +1,908 @@
+---
+title: "Preliminary analysis R01 Resubmission"
+author: "Christelle Colin-Leitzinger"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+
+.figure {
+   margin-top: 25px;
+   margin-bottom: 100px;
+}
+
+table {
+    margin-top: 10px;
+    margin-bottom: 25px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.align='center'
+                      )
+```
+
+```{r library}
+library(tidyverse)
+library(ggplot2)
+library(gtsummary)
+library(survival)
+library(survminer)
+theme_gtsummary_compact()
+theme_set(theme_classic())
+```
+
+```{r load}
+adipose_data <- read_rds(paste0(here::here(), "/adipose_data.rds")) %>% 
+  mutate(id = as.character(id)) %>% 
+  mutate(pfs_event = case_when(
+    vital_new == "Dead"                      ~ 1,
+    TRUE                                     ~ rec_event
+  )) %>% 
+  mutate(pfs_time = recurrence_time)
+roswell_data <- read_rds(paste0(here::here(), "/roswell_data.rds"))
+```
+
+```{r cleaning}
+full_data <- bind_rows(adipose_data %>% mutate(study = "Moffitt"),
+                       roswell_data %>% mutate(study = "Roswell"))
+```
+
+```{r tertile}
+full_data <- full_data %>% 
+  mutate(tnm_cs_mixed_group_stage = case_when(
+    tnm_cs_mixed_group_stage == "I-II"                  ~ "I-II",
+    tnm_cs_mixed_group_stage == "III" |
+      tnm_cs_mixed_group_stage == "IV"                  ~ "III-IV",
+    TRUE                                                ~ "III-IV"
+  )) %>% 
+  mutate(tertile = ntile(imat_area_cm2, 3)) %>% 
+  mutate(tert_imat_area_cm2 = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  )) %>% 
+  
+  mutate(tertile = ntile(vat_area_cm2, 3)) %>% 
+  mutate(tert_vat_area_cm2 = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  )) %>% 
+  
+  mutate(tertile = ntile(sat_area_cm2, 3)) %>% 
+  mutate(tert_sat_area_cm2 = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  )) %>% 
+  
+  mutate(tertile = ntile(total_fat_area, 3)) %>% 
+  mutate(tert_total_fat_area = case_when(
+    tertile == 1 ~ "Low",
+    tertile == 2 ~ "Medium",
+    tertile == 3 ~ "High",
+  )) %>% 
+  select(-tertile) %>% 
+  mutate(across(starts_with("tert_"), ~ factor(., levels = c("Low", "Medium", "High"))))
+```
+# 1. Tables 1. Patient characteristics and body composition depots overall, by study and by treatment type (neo vs. debulking) 
+## overall
+```{r}
+full_data %>% 
+  select(age_at_diagnosis, 
+         bmi, bmi_cat,
+         treatment_type, 
+         tnm_cs_mixed_group_stage, 
+         os_event, os_time,
+         pfs_event, pfs_time,
+         sat_area_cm2, imat_area_cm2, 
+         vat_area_cm2, total_fat_area,
+         starts_with("tert_")) %>% 
+  tbl_summary(
+    type = list(all_dichotomous() ~ "categorical"), 
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+    ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+## by study
+```{r}
+full_data %>% 
+  select(age_at_diagnosis, study,
+         bmi, bmi_cat,
+         treatment_type, 
+         tnm_cs_mixed_group_stage, 
+         os_event, os_time,
+         pfs_event, pfs_time,
+         sat_area_cm2, imat_area_cm2, 
+         vat_area_cm2, total_fat_area,
+         starts_with("tert_")) %>% 
+  tbl_summary(by = study,
+    type = list(all_dichotomous() ~ "categorical"), 
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+    ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  add_p() %>% bold_p(t = .05) %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+## by treatment type
+```{r}
+full_data %>% 
+  select(age_at_diagnosis, 
+         bmi, bmi_cat,
+         treatment_type, 
+         tnm_cs_mixed_group_stage, 
+         os_event, os_time,
+         pfs_event, pfs_time,
+         sat_area_cm2, imat_area_cm2, 
+         vat_area_cm2, total_fat_area,
+         starts_with("tert_")) %>% 
+  tbl_summary(by = treatment_type,
+    type = list(all_dichotomous() ~ "categorical"), 
+            statistic=list(all_continuous() ~ "{mean} ({sd})"), 
+            digits = all_continuous() ~ 1
+    ) %>%  
+  bold_labels() %>% add_stat_label() %>% 
+  add_p() %>% bold_p(t = .05) %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+## Plots 
+```{r, fig.width= 12, fig.height= 12}
+full_data %>% 
+  select(mrn, bmi_cat,
+         imat_area_cm2,
+         vat_area_cm2,
+         sat_area_cm2,
+         total_fat_area) %>% 
+  rename(c("IMAT" = imat_area_cm2,
+           "VAT" = vat_area_cm2,
+           "SAT" = sat_area_cm2,
+           "TAT" = total_fat_area)) %>% 
+  pivot_longer(-c(mrn, bmi_cat)) %>% 
+  mutate(name = factor(name,
+                       levels = c(
+                         "IMAT",
+                         "VAT",
+                         "SAT",
+                         "TAT"
+                       ))) %>%
+  filter(!is.na(bmi_cat)) %>% 
+  ggplot(aes(x= bmi_cat, y= value, color = bmi_cat))+
+  geom_boxplot()+
+  labs(x= NULL, y= "Body Composition Depot",
+       color= "Imputed BMI category")+
+  scale_color_viridis_d(option = "G", end = c(0.8))+
+  theme_classic()+ 
+  theme(legend.position="bottom")+
+  coord_flip()+
+  facet_wrap(.~ name, scales = "free_x", ncol = 2)
+
+full_data %>% 
+  select(mrn, study,
+         imat_area_cm2,
+         vat_area_cm2,
+         sat_area_cm2,
+         total_fat_area) %>% 
+  rename(c("IMAT" = imat_area_cm2,
+           "VAT" = vat_area_cm2,
+           "SAT" = sat_area_cm2,
+           "TAT" = total_fat_area)) %>% 
+  pivot_longer(-c(mrn, study)) %>% 
+  mutate(name = factor(name,
+                       levels = c(
+                         "IMAT",
+                         "VAT",
+                         "SAT",
+                         "TAT"
+                       ))) %>%
+  ggplot(aes(x= study, y= value, color = study))+
+  geom_boxplot()+
+  labs(x= NULL, y= "Body Composition Depot",
+       color= "")+
+  scale_color_viridis_d(option = "A",begin = c(0.2), end = c(0.8))+
+  theme_classic()+ 
+  theme(legend.position="bottom")+
+  coord_flip()+
+  facet_wrap(.~ name, scales = "free_x", ncol = 2)
+```
+<br>
+<br>
+
+# 2. Table 2 – Association of BMI and each body composition depot with PFS overall and by treatment type
+
+Multivariable analyses are adjusted for `+ age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study`.  
+
+## Overall
+```{r HR tertiles PFS}
+tbl1 <- full_data %>% select(pfs_event, pfs_time,
+                                bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$pfs_time,
+                             event = full_data$pfs_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ 
+          bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = bmi_cat) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(pfs_event, pfs_time,
+                                tert_imat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$pfs_time,
+                             event = full_data$pfs_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ 
+          tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(pfs_event, pfs_time,
+                                tert_vat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$pfs_time,
+                             event = full_data$pfs_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ 
+          tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(pfs_event, pfs_time,
+                                tert_sat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$pfs_time,
+                             event = full_data$pfs_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ 
+          tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(pfs_event, pfs_time,
+                                tert_total_fat_area) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$pfs_time,
+                             event = full_data$pfs_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ 
+          tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$pfs_time,
+             event = full_data$pfs_event) ~ tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+```
+<br>
+<br>
+
+## By treatment type
+
+```{r Stratified treatment pfs}
+full_data_neo <- full_data %>% 
+  filter(treatment_type == "Upfront Neoadjuvant")
+
+full_data_surg <- full_data %>% 
+  filter(treatment_type == "Upfront Surgery")
+```
+
+Multivariable analyses are adjusted for `+ age_at_diagnosis + tnm_cs_mixed_group_stage + study`.  
+
+### Upfront Chemo
+```{r}
+tbl1 <- full_data_neo %>% select(pfs_event, pfs_time,
+                                bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$pfs_time,
+                             event = full_data_neo$pfs_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$pfs_time,
+             event = full_data_neo$pfs_event) ~ 
+          bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = bmi_cat) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(pfs_event, pfs_time,
+                                tert_imat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$pfs_time,
+                             event = full_data_neo$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_imat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$pfs_time,
+             event = full_data_neo$pfs_event) ~ 
+          tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(pfs_event, pfs_time,
+                                tert_vat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$pfs_time,
+                             event = full_data_neo$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$pfs_time,
+             event = full_data_neo$pfs_event) ~ 
+          tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(pfs_event, pfs_time,
+                                tert_sat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$pfs_time,
+                             event = full_data_neo$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_sat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$pfs_time,
+             event = full_data_neo$pfs_event) ~ 
+          tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(pfs_event, pfs_time,
+                                tert_total_fat_area) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$pfs_time,
+                             event = full_data_neo$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_total_fat_area) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$pfs_time,
+             event = full_data_neo$pfs_event) ~ 
+          tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
+### Upfront Surgery
+```{r}
+tbl1 <- full_data_surg %>% select(pfs_event, pfs_time,
+                                bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$pfs_time,
+                             event = full_data_surg$pfs_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$pfs_time,
+             event = full_data_surg$pfs_event) ~ 
+          bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = bmi_cat) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(pfs_event, pfs_time,
+                                tert_imat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$pfs_time,
+                             event = full_data_surg$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_imat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$pfs_time,
+             event = full_data_surg$pfs_event) ~ 
+          tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(pfs_event, pfs_time,
+                                tert_vat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$pfs_time,
+                             event = full_data_surg$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$pfs_time,
+             event = full_data_surg$pfs_event) ~ 
+          tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(pfs_event, pfs_time,
+                                tert_sat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$pfs_time,
+                             event = full_data_surg$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_sat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$pfs_time,
+             event = full_data_surg$pfs_event) ~ 
+          tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(pfs_event, pfs_time,
+                                tert_total_fat_area) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$pfs_time,
+                             event = full_data_surg$pfs_event)),
+                   exponentiate = TRUE, 
+                   include = tert_total_fat_area) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$pfs_time,
+             event = full_data_surg$pfs_event) ~ 
+          tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
+#	3. Table 3 – Association of BMI and each body composition depot with OS overall and by treatment type
+
+Multivariable analyses are adjusted for `+ age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study`.  
+
+## Overall
+```{r HR tertiles os}
+tbl1 <- full_data %>% select(os_event, os_time,
+                                bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$os_time,
+                             event = full_data$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ 
+          bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = bmi_cat) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(os_event, os_time,
+                                tert_imat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$os_time,
+                             event = full_data$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ 
+          tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(os_event, os_time,
+                                tert_vat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$os_time,
+                             event = full_data$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ 
+          tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(os_event, os_time,
+                                tert_sat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$os_time,
+                             event = full_data$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ 
+          tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+
+tbl1 <- full_data %>% select(os_event, os_time,
+                                tert_total_fat_area) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data$os_time,
+                             event = full_data$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ 
+          tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+print("PH assumption")
+coxph(Surv(time = full_data$os_time,
+             event = full_data$os_event) ~ tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study,
+        data =  full_data)  %>% 
+  cox.zph()
+```
+<br>
+<br>
+
+## By treatment type
+
+```{r Stratified treatment os}
+full_data_neo <- full_data %>% 
+  filter(treatment_type == "Upfront Neoadjuvant")
+
+full_data_surg <- full_data %>% 
+  filter(treatment_type == "Upfront Surgery")
+```
+
+Multivariable analyses are adjusted for `+ age_at_diagnosis + tnm_cs_mixed_group_stage + study`.  
+
+### Upfront Chemo
+```{r}
+tbl1 <- full_data_neo %>% select(os_event, os_time,
+                                bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$os_time,
+                             event = full_data_neo$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$os_time,
+             event = full_data_neo$os_event) ~ 
+          bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = bmi_cat) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(os_event, os_time,
+                                tert_imat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$os_time,
+                             event = full_data_neo$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_imat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$os_time,
+             event = full_data_neo$os_event) ~ 
+          tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(os_event, os_time,
+                                tert_vat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$os_time,
+                             event = full_data_neo$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$os_time,
+             event = full_data_neo$os_event) ~ 
+          tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(os_event, os_time,
+                                tert_sat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$os_time,
+                             event = full_data_neo$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_sat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$os_time,
+             event = full_data_neo$os_event) ~ 
+          tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_neo %>% select(os_event, os_time,
+                                tert_total_fat_area) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_neo$os_time,
+                             event = full_data_neo$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_total_fat_area) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_neo$os_time,
+             event = full_data_neo$os_event) ~ 
+          tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_neo) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
+### Upfront Surgery
+```{r}
+tbl1 <- full_data_surg %>% select(os_event, os_time,
+                                bmi_cat) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$os_time,
+                             event = full_data_surg$os_event)),
+                   exponentiate = TRUE) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$os_time,
+             event = full_data_surg$os_event) ~ 
+          bmi_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = bmi_cat) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(os_event, os_time,
+                                tert_imat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$os_time,
+                             event = full_data_surg$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_imat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$os_time,
+             event = full_data_surg$os_event) ~ 
+          tert_imat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_imat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(os_event, os_time,
+                                tert_vat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$os_time,
+                             event = full_data_surg$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_vat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$os_time,
+             event = full_data_surg$os_event) ~ 
+          tert_vat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_vat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(os_event, os_time,
+                                tert_sat_area_cm2) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$os_time,
+                             event = full_data_surg$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_sat_area_cm2) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$os_time,
+             event = full_data_surg$os_event) ~ 
+          tert_sat_area_cm2 + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_sat_area_cm2) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+
+tbl1 <- full_data_surg %>% select(os_event, os_time,
+                                tert_total_fat_area) %>%
+  tbl_uvregression(method = survival::coxph,
+                   y = (Surv(time = full_data_surg$os_time,
+                             event = full_data_surg$os_event)),
+                   exponentiate = TRUE, 
+                   include = tert_total_fat_area) %>% 
+  bold_labels() %>% italicize_levels() %>% 
+  bold_p(t = .05) %>% add_nevent(location = "level") %>% add_n(location = "level")
+tbl2 <-
+  coxph(Surv(time = full_data_surg$os_time,
+             event = full_data_surg$os_event) ~ 
+          tert_total_fat_area + age_at_diagnosis + tnm_cs_mixed_group_stage + study,
+        data =  full_data_surg) %>%
+  tbl_regression(exponentiate = TRUE, 
+                 include = tert_total_fat_area) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl1, tbl2), tab_spanner = c("**Univariable**", "**Multivariable**"))
+```
+<br>
+<br>
+
