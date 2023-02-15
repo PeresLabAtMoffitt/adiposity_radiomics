@@ -228,6 +228,7 @@ full_data %>%
 <br>
 <br>
 
+
 # 2. Table 2 – Association of BMI and each body composition depot with PFS overall and by treatment type
 
 Multivariable analyses are adjusted for `+ age_at_diagnosis + tnm_cs_mixed_group_stage + treatment_type + study`.  
@@ -356,6 +357,32 @@ coxph(Surv(time = full_data$pfs_time,
 ```
 <br>
 <br>
+
+## 2a. Survival Figure
+```{r}
+mysurv <- Surv(full_data$os_time, event = full_data$os_event)
+myplot <- survfit(mysurv~tert_imat_area_cm2, data = full_data)
+ggsurvplot(myplot, data = full_data,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           legend.labs = c("Low", "Medium", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) + guides(colour = guide_legend(ncol = 1))
+```
+
+
 
 ## By treatment type
 
