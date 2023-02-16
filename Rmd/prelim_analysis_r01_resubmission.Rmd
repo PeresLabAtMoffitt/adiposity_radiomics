@@ -357,6 +357,21 @@ coxph(Surv(time = full_data$pfs_time,
 ```
 <br>
 <br>
+```{r}
+cor.test(full_data$bmi, full_data$imat_area_cm2)
+cor.test(full_data$bmi, full_data$vat_area_cm2)
+cor.test(full_data$bmi, full_data$sat_area_cm2)
+
+full_data %>% 
+  ggplot(aes(x= bmi, y= imat_area_cm2))+
+  geom_point()+
+  geom_smooth(method = "lm") +
+  stat_cor(size=5)+ 
+  stat_regline_equation(label.y = 85, 
+    size=5)
+```
+<br>
+<br>
 
 ## 2a. Survival Figure
 ```{r}
