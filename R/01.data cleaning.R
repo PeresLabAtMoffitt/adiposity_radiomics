@@ -52,13 +52,31 @@ adipose_data <- left_join(radiomics, clinical_data,
     bmi >= 35                                        ~ "≥35"
   )) %>% 
   mutate(bmi_cat2 = factor(bmi_cat2, levels = c("<25", "25-29", "30-34", "≥35")))  %>% 
-  mutate(SMI = muscle_area_cm2 / (height_m_ * height_m_)) %>% 
+  mutate(SMA = muscle_area_cm2 / (height_m_ * height_m_)) %>% 
+  mutate(BCI = 
+           (1.4079 + 
+              (
+                (0.0039 * sat_area_cm2 - 0.0036 * vat_area_cm2 - 0.0309 * SMA) / 
+                 (height_m_ * height_m_)
+               
+            )) * 
+           (SMA / imat_area_cm2)
+         ) %>% 
+  mutate(BCI_roswell_cat = case_when(
+    BCI < 3.48                             ~ "Low",
+    BCI >= 3.48                            ~ "High"
+  ), BCI_roswell_cat = factor(BCI_roswell_cat, levels = c("High", "Low"))) %>% 
+  mutate(BCI_moffitt_cat = case_when(
+    BCI < 3.44                             ~ "Low",
+    BCI >= 3.44                            ~ "High"
+  ), BCI_moffitt_cat = factor(BCI_moffitt_cat, levels = c("High", "Low"))) %>% 
+  
   mutate(sarcopenia = case_when(
-    SMI <= 38.73                                     ~ "Yes",
+    SMA <= 38.73                                     ~ "Yes",
     TRUE                                             ~ "No"
   )) %>% 
   mutate(martin = case_when(
-    SMI < 41                                         ~ "Sarcopenia",
+    SMA < 41                                         ~ "Sarcopenia",
     TRUE                                             ~ "No sarcopenia"
   ))%>% 
   mutate(tnm_cs_mixed_group_stage = case_when(
@@ -118,6 +136,6 @@ adipose_data <- adipose_data %>%
          v_s_ratio_HR = v_s_ratio / v_s_ratio_SD)
 
 
-write_rds(adipose_data, "adipose_data.rds")
+write_rds(adipose_data, paste0("adipose_data", today(), ".rds"))
 
 # End cleaning
