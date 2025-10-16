@@ -12,75 +12,71 @@ fct_name_repair <- function(colnms) {
 ###_______________________________________________________________###
 
 path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics")
-radiomics <-
+body_comp <-
   readxl::read_xlsx(paste0(path, "/CTbased adiposity",
                            "/dataset/CT data 09272021.xlsx"),
                     .name_repair = fct_name_repair) %>% 
   `colnames<-`(str_replace(colnames(.), "__", "_"))
-clinical_data <-
-  read_csv(paste0(path, "/CTbased adiposity",
-                  "/dataset/ForDan_clinical_modif_06092022.csv"))
+# clinical_data <-
+#   read_csv(paste0(path, "/CTbased adiposity",
+#                   "/dataset/ForDan_clinical_modif_06092022.csv"))
 updated_survival <- 
   read_rds(paste0(path, 
                   "/Grant applications/Miles for Moffitt/data/",
-                  "processed data/Ovarian_Normalized_Radiomics_Features_29Jan2025.rds"))
+                  "processed data/Ovarian_Normalized_Radiomics_Features_30Apr2025.rds")) %>% 
+  `colnames<-`(str_replace(colnames(.), "__", "_"))
 
 roswell_data <-
   readxl::read_xlsx(paste0(path, "/Roswell CTs (May 2024)/Dataset",
                            "/De-ID Data Set for Moffitt 04032024.xlsx"))
-
+# roswell_data_old <-
+#   readxl::read_xlsx(paste0(here::here(), 
+#                            "/De-Identified Limited Body Comp Common Data Set for Moffitt Collab 01252023.xlsx"))
 
 #################################################################### II ### Cleaning data ----
-# updated_survival1 <- updated_survival %>% 
-#   mutate(os_time_from_dx = round(interval(start = date_of_diagnosis, end = fwdate_most_recent)/
-#                                    duration(n=1, units = "months"), 2)) %>%
-#   select(mrn, age_at_first_recurrence : ncol(.))
-
-# dat <- full_join(updated_survival1, 
-#                  clinical_data %>% 
-#                    select(mrn, vital_new, vital_date_new, age_at_first_recurrence : ncol(.)),# %>% 
-#                    # select(-c(age_at_first_recurrence, rec_event_date, recurrence_time, rec_event
-#                    #           os_time, os_event,
-#                    #           )),
-#                  by = "mrn")
-# table(dat$age_at_first_recurrence.x == dat$age_at_first_recurrence.y, useNA = "always") # remove from old data as there is new events
-
-
-
-
-# [4] "first_treatment_date.x"                                 "os_time.x"                            "os_event.x"                          
-# [10] "months_at_surg_followup.x"            "months_at_neo_followup.x"             "months_at_chem_followup.x"           
-# [13] "months_at_treat_followup.x"           "months_of_dx_rec_free.x"              "months_of_surg_rec_free.x"           
-# [16] "months_of_neo_rec_free.x"             "months_of_chem_rec_free.x"            "months_of_treat_rec_free.x"          
-# [19] "recurrence_date_after_surgery.x"      "has_the_patient_recurredafter_surg.x" "vital_status_date"                   
-# [22] "vital_status"                         "vital_new"                            "vital_date_new"                      
-# [25] "age_at_first_recurrence.y"            "month_at_first_recurrence_Dx.y"       "first_treatment_date.y"              
-# [28] "rec_event_date.y"                     "recurrence_time.y"                    "rec_event.y"                         
-# [31] "os_time.y"                            "os_event.y"                           "months_at_surg_followup.y"           
-# [34] "months_at_neo_followup.y"             "months_at_chem_followup.y"            "months_at_treat_followup.y"          
-# [37] "months_of_dx_rec_free.y"              "months_of_surg_rec_free.y"            "months_of_neo_rec_free.y"            
-# [40] "months_of_chem_rec_free.y"            "months_of_treat_rec_free.y"           "recurrence_date_after_surgery.y"     
-# [43] "has_the_patient_recurredafter_surg.y"
+body_comp <- body_comp %>% 
+  purrr::keep(~!all(is.na(.))) %>%
+  mutate(mrn = as.character(mrn)) %>% 
+  mutate(baseline_ct_scan_date = as.Date(baseline_ct_scan_date))
 
 updated_survival1 <- updated_survival %>% 
+  mutate(mrn = as.character(mrn)) %>% 
   distinct(mrn, .keep_all = TRUE) %>% 
+  # Outcome
   mutate(os_time_from_dx = round(interval(start = date_of_diagnosis, end = fwdate_most_recent)/
                                    duration(n=1, units = "months"), 2)) %>%
-  mutate(rec_time_from_dx = round(interval(start = date_of_diagnosis, end = rec_event_date)/
+  mutate(pfs_enddate = case_when(
+    rec_event == 0 & 
+      os_event == 1               ~ fwdate_most_recent, #only use date of death when death occurred but no recurrence
+    TRUE                          ~ rec_event_date, # use recurrence date for everything else
+  )) %>% 
+  mutate(pfs_time_from_dx = round(interval(start = date_of_diagnosis, end = pfs_enddate)/
                                    duration(n=1, units = "months"), 2)) %>%
-  select(mrn, vital_status_date : rec_time_from_dx) %>% 
-  `colnames<-`(c("mrn", paste0(colnames(.)[2:ncol(.)], "_Jan2025")
-                 ))
+  # Date for merging
+  mutate(baseline_ct_scan_date = as.Date(baseline_ct_scan_date, format = "%m/%d/%Y")) %>% 
+  # clinical
+  mutate(debulking_status = case_when(
+    debulking_status == "incomplete records"             ~ NA_character_,
+    str_detect(debulking_status, "^optimal \\(")         ~ "Optimal",
+    str_detect(debulking_status, "^suboptimal \\(")      ~ "Suboptimal",
+    str_detect(debulking_status, "^complete \\(")        ~ "Complete"
+  )) %>% 
+  mutate(race = str_to_sentence(race_cancer_registry)) %>% 
+  # Remove unnecessary variables
+  select(-c(starts_with("nor_"), matches("^f[1-9]")))
+  # select(mrn, vital_status_date : rec_time_from_dx) %>% 
+  # `colnames<-`(c("mrn", paste0(colnames(.)[2:ncol(.)], "_Jan2025")
+  #                ))
 
-clinical_data1 <- full_join(updated_survival1, 
-                 clinical_data #%>% 
-                   # select(mrn, date_of_diagnosis, age_at_diagnosis,
-                   #        baseline_ct_scan_date, 
-                   #        date_of_first_recurrence, date_of_last_followup,
-                   #        fwdate_most_recent,
-                   #        tnm_cs_mixed_group_stage, debulking_status,
-                   #        age_at_first_recurrence : ncol(.)
-                          ) %>% 
+# clinical_data1 <- full_join(updated_survival1, 
+#                  clinical_data #%>% 
+#                    # select(mrn, date_of_diagnosis, age_at_diagnosis,
+#                    #        baseline_ct_scan_date, 
+#                    #        date_of_first_recurrence, date_of_last_followup,
+#                    #        fwdate_most_recent,
+#                    #        tnm_cs_mixed_group_stage, debulking_status,
+#                    #        age_at_first_recurrence : ncol(.)
+#                           ) %>% 
                    # Need to recode recurrence date and time to use date_of_last_followup and not fwdate_most_recent
                  #   mutate(rec_event_date = coalesce(date_of_first_recurrence, date_of_last_followup)) %>% 
                  #   mutate(recurrence_time = round(interval(start = first_treatment_date, end = rec_event_date)/
@@ -91,18 +87,17 @@ clinical_data1 <- full_join(updated_survival1,
   # mutate(vital_new = coalesce(vital_status_Nov2024, vital_new)) %>% 
   # mutate(vital_date_new = coalesce(vital_status_date_Nov2024, vital_date_new)) %>% 
   # 
-  mutate(os_event_Jan2025 = case_when(
-    vital_status_Jan2025 == "ALIVE"      ~ 0,
-    vital_status_Jan2025 == "DEAD"      ~ 1
-  ))
+  # mutate(os_event_Jan2025 = case_when(
+  #   vital_status_Jan2025 == "ALIVE"      ~ 0,
+  #   vital_status_Jan2025 == "DEAD"      ~ 1
+  # ))
   # mutate(os_time = coalesce(os_time_Nov2024, os_time)) %>% 
   # mutate(rec_event = coalesce(rec_event_Nov2024, rec_event)) %>% 
   # mutate(recurrence_time = coalesce(recurrence_time_Nov2024, recurrence_time)) %>% 
   # mutate(rec_event_date = coalesce(rec_event_date_Nov2024, rec_event_date))
-  
 
 
-moffitt_data <- left_join(radiomics, clinical_data1, 
+moffitt_data <- left_join(body_comp, updated_survival1, 
                           by=c("mrn", "date_of_diagnosis", "baseline_ct_scan_date")) %>% # keep patient with ct image
   
   purrr::keep(~!all(is.na(.))) %>%
@@ -127,7 +122,7 @@ moffitt_data <- left_join(radiomics, clinical_data1,
     SMI < 41                                         ~ "Sarcopenia",
     TRUE                                             ~ "No sarcopenia"
   )) %>% 
-  mutate(weight_date = as.Date(weight_date, format = "%m/%d/%Y")) %>% 
+  # mutate(weight_date = as.Date(weight_date, format = "%m/%d/%Y")) %>% 
   
   mutate(ascites = case_when(
     is.na(ascites)                         ~ "absence",
@@ -142,7 +137,21 @@ moffitt_data <- left_join(radiomics, clinical_data1,
   ))
 
 # adipose_data %>% nrow()
-write_rds(moffitt_data, paste0("updated moffitt body comp data_", today(), ".rds"))
+write_rds(moffitt_data, 
+          paste0("data/", "updated moffitt body comp data_", today(), ".rds"))
+write_csv(moffitt_data, 
+          paste0("data/", "updated moffitt body comp data_", today(), ".csv"))
+
+write_rds(moffitt_data, 
+          paste0(path, "/CTbased adiposity",
+                 "/dataset/processed data/",
+                 "updated moffitt body comp data_", today(), ".rds"))
+write_csv(moffitt_data, 
+          paste0(path, "/CTbased adiposity",
+                 "/dataset/processed data/",
+                 "updated moffitt body comp data_", today(), ".csv"))
+
+
 
 # Create and merge indexed data
 # adipose_data <- adipose_data %>% 
@@ -151,20 +160,16 @@ write_rds(moffitt_data, paste0("updated moffitt body comp data_", today(), ".rds
 #   `colnames<-`(paste(colnames(.), "ind", sep = "_")) %>% 
 #   full_join(adipose_data, ., by = c("mrn" = "mrn_ind"))
 
-
-
-
-
-
-
-
-
-
-
+# Clean Roswell data - get same names etc as Moffit
 roswell_data <- roswell_data %>% 
+  mutate(recstat = case_when(
+    recstat == 9             ~ NA_real_,
+    TRUE                     ~ recstat
+  )) %>% 
   rename(# id = studyID, 
          age_at_diagnosis = ageDX, 
          tnm_cs_mixed_group_stage = combined_stage, 
+         histology = HistologyDescription,
          # treatment_type = first_line_tx,
          debulking_status = DEBULK,
          weight_kg = chemo_start_wgt,
@@ -172,10 +177,14 @@ roswell_data <- roswell_data %>%
          bmi = BMIstartchemo_new,
          sat_area_cm2 = PRE_SUBQ_1, imat_area_cm2 = PRE_IMA_1, 
          vat_area_cm2 = PRE_VAT_1, total_fat_area = PRE_TAT_1,
-         muscle_area_cm2 = PRE_SMA_1
-         # os_event = survstat, os_time = survtime, 
-         # rec_event = recstat, recurrence_time = rectime
+         muscle_area_cm2 = PRE_SMA_1,
+         os_event = survstat, os_time_from_dx = survtime,
+         pfs_event = recstat, pfs_time_from_dx = rectime
   ) %>% 
+  mutate(ascites2 = case_when(
+    Ascites_1_Yes_No == 0                            ~ "absence",
+    Ascites_1_Yes_No == 1                            ~ "presence"
+  )) %>% 
   mutate(debulking_status = case_when(
     debulking_status == "SUB"           ~ "Suboptimal",
     debulking_status == "UNKNOWN"       ~ NA_character_,
@@ -183,12 +192,7 @@ roswell_data <- roswell_data %>%
   ))
 
 comb_dat <- bind_rows(moffitt_data, 
-                      roswell_data %>% 
-                        # rename to have same names as in moffitt data
-                        rename(os_event_Jan2025 = survstat, 
-                               os_time_from_dx_Jan2025 = survtime,
-                               rec_event_Jan2025 = recstat,
-                               rec_time_from_dx_Jan2025 = rectime), 
+                      roswell_data,
                       .id = "site") %>% 
   mutate(site = case_when(
     site == 1              ~ "Moffitt",
@@ -226,14 +230,14 @@ comb_dat <- comb_dat %>%
     BCI < 3.48                             ~ "Low",
     BCI >= 3.48                            ~ "High"
   ), BCI_roswell_cat = factor(BCI_roswell_cat, levels = c("High", "Low"))) %>% 
-  mutate(BCI_moffitt_cat = case_when(
-    BCI < 3.44                             ~ "Low",
-    BCI >= 3.44                            ~ "High"
-  ), BCI_moffitt_cat = factor(BCI_moffitt_cat, levels = c("High", "Low"))) %>% 
-  mutate(BCI_cat = case_when(
-    BCI < 3.54                             ~ "Low",
-    BCI >= 3.54                            ~ "High"
-  ), BCI_cat = factor(BCI_cat, levels = c("High", "Low"))) %>% 
+  # mutate(BCI_moffitt_cat = case_when(
+  #   BCI < 3.44                             ~ "Low",
+  #   BCI >= 3.44                            ~ "High"
+  # ), BCI_moffitt_cat = factor(BCI_moffitt_cat, levels = c("High", "Low"))) %>% 
+  # mutate(BCI_cat = case_when(
+  #   BCI < 3.54                             ~ "Low",
+  #   BCI >= 3.54                            ~ "High"
+  # ), BCI_cat = factor(BCI_cat, levels = c("High", "Low"))) %>% 
   # mutate(raceeth1 = case_when(
   #   raceeth == "White Non-Hispanic"        ~ "NHWhite",
   #   TRUE                                   ~ "Others"
@@ -260,9 +264,19 @@ comb_dat <- comb_dat %>%
                                                                                 "III-IV",# "III", 
                                                                                 "Unknown")))
 
+write_rds(comb_dat, 
+          paste0("data/", "combined Moffitt-Roswell body comp data_", today(), ".rds"))
+write_csv(comb_dat, 
+          paste0("data/", "combined Moffitt-Roswell body comp data_", today(), ".csv"))
 
-write_rds(comb_dat, paste0("combined body comp data_", today(), ".rds"))
-
+write_rds(comb_dat, 
+          paste0(path, "/CTbased adiposity",
+                 "/dataset/processed data/",
+                 "combined Moffitt-Roswell body comp data_", today(), ".rds"))
+write_csv(comb_dat, 
+          paste0(path, "/CTbased adiposity",
+                 "/dataset/processed data/",
+                 "combined Moffitt-Roswell body comp data_", today(), ".csv"))
 
 
 

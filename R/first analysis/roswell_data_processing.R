@@ -45,7 +45,7 @@ roswell_data <- roswell_data %>%
     recstat == 2                                        ~ 1
   ))
 
-write_rds(roswell_data, "roswell_data.rds")
+# write_rds(roswell_data, "roswell_data.rds")
 
 
 

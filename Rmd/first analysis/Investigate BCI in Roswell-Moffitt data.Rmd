@@ -1,0 +1,331 @@
+---
+title: "BCI in Roswell-Moffitt data"
+author: "Christelle Colin-Leitzinger"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: paged
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+
+.figure {
+   margin-top: 25px;
+   margin-bottom: 100px;
+}
+
+table {
+    margin-top: 10px;
+    margin-bottom: 25px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.align='center'
+                      )
+```
+
+```{r library}
+library(tidyverse)
+library(ggplot2)
+library(mclust)
+library(data.table)
+library(labelled)
+library(gtsummary)
+library(survival)
+library(survminer)
+library(mice)
+library(lubridate)
+theme_gtsummary_compact()
+theme_set(theme_classic())
+```
+
+```{r load}
+adipose_data <- read_rds(paste0(here::here(), "/combined body comp data_2024-12-04.rds")) 
+```
+
+# 1. Table 1. Patient characteristics and body composition depots overall
+```{r}
+adipose_data %>% 
+  select(muscle_area_cm2, imat_area_cm2, vat_area_cm2, sat_area_cm2, total_fat_area,
+         BCI,
+         # BCI_cat,
+         debulking_status, age_at_diagnosis, tnm_cs_mixed_group_stage,
+         site) %>% 
+  tbl_summary(by = site,
+              digits = all_continuous() ~ 1
+  ) %>%  
+  bold_labels() %>% add_overall() %>% 
+  # add_p() %>% 
+  add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+# Estimate a cut point based on combined Roswell - Moffitt dataset
+## BCI as a unique factor
+<!-- each plot has a diffrent p-value method -->
+```{r cut points BCI, echo = TRUE, class.source= 'fold-show'}
+library(maxstat)
+
+set.seed(1234)
+mstat <- maxstat.test(Surv(time = adipose_data$os_time,
+             event = adipose_data$os_event) ~ BCI,
+        data =  adipose_data, 
+                      smethod="LogRank", pmethod="exactGauss", 
+                      abseps=0.01)
+mstat
+plot(mstat)
+
+
+# mstat <- maxstat.test(Surv(time = adipose_data$os_time,
+#              event = adipose_data$os_event) ~ BCI,
+#         data =  adipose_data,
+#                       smethod="LogRank", pmethod="Lau92",
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+# 
+# mstat <- maxstat.test(Surv(time = adipose_data$os_time,
+#              event = adipose_data$os_event) ~ BCI,
+#         data =  adipose_data,
+#                       smethod="LogRank", pmethod="Lau94",
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+# 
+# mstat <- maxstat.test(Surv(time = adipose_data$os_time,
+#              event = adipose_data$os_event) ~ BCI,
+#         data =  adipose_data,
+#                       smethod="LogRank", pmethod="HL",
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+# 
+# mstat <- maxstat.test(Surv(time = adipose_data$os_time,
+#              event = adipose_data$os_event) ~ BCI,
+#         data =  adipose_data,
+#                       smethod="LogRank", pmethod="condMC",
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+```
+BCI cut point is `r round(mstat[["estimate"]][["estimated cutpoint"]],2)`
+
+## BCI + age_at_diagnosis
+```{r cut points BCI + age_at_diagnosis, echo = TRUE}
+mstat <- maxstat.test(Surv(time = adipose_data$os_time,
+             event = adipose_data$os_event) ~ BCI + age_at_diagnosis,
+        data =  adipose_data, 
+                      smethod="LogRank", pmethod="exactGauss", 
+                      abseps=0.01)
+mstat
+plot(mstat)
+```
+Using this formula, the BCI cut point would be `r round(mstat[["maxstats"]][[1]][["estimate"]][["estimated cutpoint"]],2)`
+
+## HR complete case
+### Overall pop
+#### OS
+```{r HR OS overall pop}
+coxph(Surv(time = adipose_data$os_time,
+             event = adipose_data$os_event) ~ 
+          BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + (debulking_status),
+        data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+```{r}
+print("PH assumption")
+coxph(Surv(time = adipose_data$os_time,
+             event = adipose_data$os_event) ~ 
+          BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + (debulking_status),
+        data =  adipose_data)  %>% 
+  cox.zph()
+```
+
+#### Recurrence
+```{r HR PFS overall pop}
+coxph(Surv(time = adipose_data$recurrence_time,
+             event = adipose_data$rec_event) ~ 
+          BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + (debulking_status),
+        data =  adipose_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+### In stage III-IV
+```{r}
+adipose_data_stage3_4 <- adipose_data %>% 
+  filter(tnm_cs_mixed_group_stage %in% c("III-IV"))
+```
+
+#### OS
+```{r HR OS stage3-4}
+coxph(Surv(time = adipose_data_stage3_4$os_time,
+             event = adipose_data_stage3_4$os_event) ~ 
+          BCI_cat + age_at_diagnosis + (debulking_status),
+        data =  adipose_data_stage3_4) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+#### Recurrence
+```{r HR PFS  stage3-4}
+coxph(Surv(time = adipose_data_stage3_4$recurrence_time,
+             event = adipose_data_stage3_4$rec_event) ~ 
+          BCI_cat + age_at_diagnosis + (debulking_status),
+        data =  adipose_data_stage3_4) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+## KM
+### Overall pop
+```{r KM OS overall pop}
+mysurv <- Surv(adipose_data$os_time, event = adipose_data$os_event)
+myplot <- survfit(mysurv~BCI_cat, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) %++% guides(colour = guide_legend(ncol = 1))
+```
+
+```{r KM PFS overall pop}
+mysurv <- Surv(adipose_data$recurrence_time, event = adipose_data$rec_event)
+myplot <- survfit(mysurv~BCI_cat, data = adipose_data)
+ggsurvplot(myplot, data = adipose_data,
+           title = "PFS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) %++% guides(colour = guide_legend(ncol = 1))
+```
+
+# Stage III-IV
+```{r KM OS stage3-4}
+mysurv <- Surv(adipose_data_stage3_4$os_time, event = adipose_data_stage3_4$os_event)
+myplot <- survfit(mysurv~BCI_cat, data = adipose_data_stage3_4)
+ggsurvplot(myplot, data = adipose_data_stage3_4,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) %++% guides(colour = guide_legend(ncol = 1))
+```
+
+```{r KM PFS stage3-4}
+mysurv <- Surv(adipose_data_stage3_4$recurrence_time, event = adipose_data_stage3_4$rec_event)
+myplot <- survfit(mysurv~BCI_cat, data = adipose_data_stage3_4)
+ggsurvplot(myplot, data = adipose_data_stage3_4,
+           title = "PFS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE
+) %++% guides(colour = guide_legend(ncol = 1))
+```
+
+<!-- ## Adjusting for site -->
+<!-- ### Overall pop -->
+<!-- #### OS -->
+<!-- ```{r HR OS site} -->
+<!-- coxph(Surv(time = adipose_data$os_time, -->
+<!--              event = adipose_data$os_event) ~  -->
+<!--           BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + (debulking_status) + site, -->
+<!--         data =  adipose_data) %>% -->
+<!--   tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>%  -->
+<!--   add_nevent(location = "level") %>% add_n(location = "level") -->
+<!-- ``` -->
+
+<!-- #### Recurrence -->
+<!-- ```{r HR PFS site} -->
+<!-- coxph(Surv(time = adipose_data$recurrence_time, -->
+<!--              event = adipose_data$rec_event) ~  -->
+<!--           BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + (debulking_status) + site, -->
+<!--         data =  adipose_data) %>% -->
+<!--   tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>%  -->
+<!--   add_nevent(location = "level") %>% add_n(location = "level") -->
+<!-- ``` -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -52,7 +52,7 @@ theme_set(theme_classic())
 ```
 
 ```{r load}
-adipose_data <- read_rds(paste0(here::here(), "/combined body comp data_2025-03-12.rds")) 
+adipose_data <- read_rds(paste0(here::here(), "/data/combined Moffitt-Roswell body comp data_2025-04-30.rds")) 
 ```
 
 # 1. Table S1. Patient characteristics and body composition depots by site
@@ -82,10 +82,10 @@ library(tidymodels)
 set.seed(1234)
 # 3/4 of the data into the training set but split evenly within sites
 data_split <- initial_split(adipose_data, prop = .75, strata = site)
-# write_rds(data_split, paste0("data_split_", today(), ".rds"))
+# write_rds(data_split, paste0("data/data_split_", today(), ".rds"))
 data_split <- 
   read_rds(paste0(here::here(), 
-                  "/data_split_2025-03-12.rds"))
+                  "/data/data_split_2025-04-30.rds"))
 # Create training and training data sets:
 training_data <- training(data_split)
 validation_data  <- testing(data_split)
@@ -124,8 +124,8 @@ I checked both ways just in case and the cutpoint estimate is the same.
 <!-- library(maxstat) -->
 
 <!-- set.seed(1234) -->
-<!-- mstat <- maxstat.test(Surv(time = training_data$os_time_from_dx_Jan2025, -->
-<!--              event = training_data$os_event_Jan2025) ~ BCI, -->
+<!-- mstat <- maxstat.test(Surv(time = training_data$os_time_from_dx, -->
+<!--              event = training_data$os_event) ~ BCI, -->
 <!--         data =  training_data, -->
 <!--                       smethod="LogRank", pmethod="exactGauss", -->
 <!--                       abseps=0.01) -->
@@ -137,8 +137,8 @@ I checked both ways just in case and the cutpoint estimate is the same.
 
 <!-- ## BCI + age_at_diagnosis -->
 <!-- ```{r cut points BCI + age_at_diagnosis, echo = TRUE} -->
-<!-- mstat <- maxstat.test(Surv(time = training_data$os_time_from_dx_Jan2025, -->
-<!--              event = training_data$os_event_Jan2025) ~ BCI + age_at_diagnosis, -->
+<!-- mstat <- maxstat.test(Surv(time = training_data$os_time_from_dx, -->
+<!--              event = training_data$os_event) ~ BCI + age_at_diagnosis, -->
 <!--         data =  training_data, -->
 <!--                       smethod="LogRank", pmethod="exactGauss", -->
 <!--                       abseps=0.01) -->
@@ -146,9 +146,9 @@ I checked both ways just in case and the cutpoint estimate is the same.
 <!-- plot(mstat) -->
 <!-- ``` -->
 
-## Survminer package - cutpoint estimation on the training data
+## Survminer package - cutpoint estimation on the training data based on OS
 ```{r cut point surminer, echo = TRUE, class.source= 'fold-hide'}
-res.cut <- surv_cutpoint(training_data, time = "os_time_from_dx_Jan2025", event = "os_event_Jan2025",
+res.cut <- surv_cutpoint(training_data, time = "os_time_from_dx", event = "os_event",
    variables = c("BCI"))
 
 plot(res.cut, "BCI")
@@ -156,17 +156,17 @@ plot(res.cut, "BCI")
 
 ```{r make cat, echo = TRUE, class.source= 'fold-hide'}
 training_data_cat <- training_data %>% 
-  mutate(BCI_cat = case_when(
+  mutate(BCI_training_cat = case_when(
     BCI <= res.cut[["cutpoint"]][["cutpoint"]]           ~ "Low",
     BCI > res.cut[["cutpoint"]][["cutpoint"]]            ~ "High"
-  ), BCI_moffitt_cat = factor(BCI_moffitt_cat, 
+  ), BCI_training_cat = factor(BCI_training_cat, 
                               levels = c("High", "Low")))
 
 validation_data_cat <- validation_data %>% 
-  mutate(BCI_cat = case_when(
+  mutate(BCI_training_cat = case_when(
     BCI <= res.cut[["cutpoint"]][["cutpoint"]]           ~ "Low",
     BCI > res.cut[["cutpoint"]][["cutpoint"]]            ~ "High"
-  ), BCI_moffitt_cat = factor(BCI_moffitt_cat, 
+  ), BCI_training_cat = factor(BCI_training_cat, 
                               levels = c("High", "Low")))
 ```
 
@@ -182,9 +182,9 @@ training_data_cat %>%
          debulking_status, 
          muscle_area_cm2, imat_area_cm2, vat_area_cm2, 
          sat_area_cm2, total_fat_area,
-         BCI, BCI_cat,
+         BCI, BCI_training_cat,
          site, dataset) %>% 
-  tbl_summary(by = BCI_cat,
+  tbl_summary(by = BCI_training_cat,
               digits = all_continuous() ~ 1
   ) %>%  
   bold_labels() %>% add_overall() %>% 
@@ -196,7 +196,7 @@ training_data_cat %>%
 
 # 5. KM by cutpoint analysis (training data)
 ```{r KM, fig.height=6}
-myplot <- survfit(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~ BCI_cat, data = training_data_cat)
+myplot <- survfit(Surv(os_time_from_dx, event = os_event) ~ BCI_training_cat, data = training_data_cat)
 ggsurvplot(myplot, data = training_data_cat,
            title = "OS Analysis",
            font.main = c(20, "bold", "black"),
@@ -221,7 +221,7 @@ ggsurvplot(myplot, data = training_data_cat,
 
 
 ```{r}
-myplot <- survfit(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~ BCI_cat, data = training_data_cat)
+myplot <- survfit(Surv(pfs_time_from_dx, event = pfs_event) ~ BCI_training_cat, data = training_data_cat)
 ggsurvplot(myplot, data = training_data_cat,
            title = "PFS Analysis",
            font.main = c(20, "bold", "black"),
@@ -246,8 +246,8 @@ ggsurvplot(myplot, data = training_data_cat,
 # 6. HR (training data)
 ## OS
 ```{r HR OS}
-coxph(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~ 
-        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+coxph(Surv(os_time_from_dx, event = os_event) ~ 
+        BCI_training_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
       data = training_data_cat) %>%
   tbl_regression(exponentiate = TRUE) %>% 
   bold_p(t = .05) %>% 
@@ -257,8 +257,8 @@ coxph(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~
 
 ## PFS
 ```{r}
-coxph(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~ 
-        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+coxph(Surv(pfs_time_from_dx, event = pfs_event) ~ 
+        BCI_training_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
       data = training_data_cat) %>%
   tbl_regression(exponentiate = TRUE) %>% 
   bold_p(t = .05) %>% 
@@ -268,7 +268,7 @@ coxph(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~
 
 # 7. KM by cutpoint analysis (validation data)
 ```{r KM validation, fig.height=6}
-myplot <- survfit(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~ BCI_cat, data = validation_data_cat)
+myplot <- survfit(Surv(os_time_from_dx, event = os_event) ~ BCI_training_cat, data = validation_data_cat)
 ggsurvplot(myplot, data = validation_data_cat,
            title = "OS Analysis",
            font.main = c(20, "bold", "black"),
@@ -292,7 +292,7 @@ ggsurvplot(myplot, data = validation_data_cat,
 ```
 
 ```{r}
-myplot <- survfit(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~ BCI_cat, data = validation_data_cat)
+myplot <- survfit(Surv(pfs_time_from_dx, event = pfs_event) ~ BCI_training_cat, data = validation_data_cat)
 ggsurvplot(myplot, data = validation_data_cat,
            title = "PFS Analysis",
            font.main = c(20, "bold", "black"),
@@ -317,8 +317,8 @@ ggsurvplot(myplot, data = validation_data_cat,
 # 8. HR (validation data)
 ## OS
 ```{r HR OS validation}
-coxph(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~ 
-        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+coxph(Surv(os_time_from_dx, event = os_event) ~ 
+        BCI_training_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
       data = validation_data_cat) %>%
   tbl_regression(exponentiate = TRUE) %>% 
   bold_p(t = .05) %>% 
@@ -328,8 +328,8 @@ coxph(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~
 
 ## PFS
 ```{r}
-coxph(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~ 
-        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+coxph(Surv(pfs_time_from_dx, event = pfs_event) ~ 
+        BCI_training_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
       data = validation_data_cat) %>%
   tbl_regression(exponentiate = TRUE) %>% 
   bold_p(t = .05) %>% 
@@ -346,7 +346,7 @@ coxph(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~
 <!-- # 7. KM BMI (supp figure?) -->
 <!-- ## training data -->
 <!-- ```{r KN BMI, fig.height=5} -->
-<!-- myplot <- survfit(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~ bmi_cat, data = training_data_cat) -->
+<!-- myplot <- survfit(Surv(os_time_from_dx, event = os_event) ~ bmi_cat, data = training_data_cat) -->
 <!-- ggsurvplot(myplot, data = training_data_cat, -->
 <!--            title = "OS Analysis", -->
 <!--            font.main = c(20, "bold", "black"), -->
@@ -369,7 +369,7 @@ coxph(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~
 
 <!-- ## Validation data -->
 <!-- ```{r KN BMI val, fig.height=5} -->
-<!-- myplot <- survfit(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~ bmi_cat, data = validation_data_cat) -->
+<!-- myplot <- survfit(Surv(os_time_from_dx, event = os_event) ~ bmi_cat, data = validation_data_cat) -->
 <!-- ggsurvplot(myplot, data = training_data_cat, -->
 <!--            title = "OS Analysis", -->
 <!--            font.main = c(20, "bold", "black"), -->
@@ -398,7 +398,7 @@ coxph(Surv(rec_time_from_dx_Jan2025, event = rec_event_Jan2025) ~
 <!--             validation_data_cat %>%  -->
 <!--               mutate(dataset = "Validation")) -->
 
-<!-- myplot <- survfit(Surv(os_time_from_dx_Jan2025, event = os_event_Jan2025) ~ bmi_cat, data = overall_data) -->
+<!-- myplot <- survfit(Surv(os_time_from_dx, event = os_event) ~ bmi_cat, data = overall_data) -->
 <!-- ggsurvplot(myplot, data = overall_data, -->
 <!--            title = "OS Analysis", -->
 <!--            font.main = c(20, "bold", "black"), -->

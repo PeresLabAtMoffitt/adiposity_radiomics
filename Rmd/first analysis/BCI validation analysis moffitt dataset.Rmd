@@ -1,0 +1,365 @@
+---
+title: "BCI validation analysis moffitt dataset"
+author: "Christelle Colin-Leitzinger"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: paged
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+
+.figure {
+   margin-top: 25px;
+   margin-bottom: 100px;
+}
+
+table {
+    margin-top: 10px;
+    margin-bottom: 25px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.align='center'
+                      )
+```
+
+```{r library}
+library(tidyverse)
+library(ggplot2)
+# library(mclust)
+# library(data.table)
+library(labelled)
+library(gtsummary)
+library(survival)
+library(survminer)
+# library(lubridate)
+theme_gtsummary_compact()
+theme_set(theme_classic())
+```
+
+```{r load}
+moffitt_data <- read_rds(paste0(here::here(), "/updated moffitt body comp data_2025-01-29.rds")) 
+```
+
+```{r more cleaning}
+moffitt_data <- moffitt_data %>% 
+  mutate(age_at_diagnosis = round(age_at_diagnosis, 0)) %>% 
+  mutate(age_cat = case_when(
+    age_at_diagnosis < 50       ~ "<50",
+    age_at_diagnosis >= 50 &
+      age_at_diagnosis < 55     ~ "50-54",
+    age_at_diagnosis >= 55 &
+      age_at_diagnosis < 60     ~ "55-59",
+    age_at_diagnosis >= 60 &
+      age_at_diagnosis < 65     ~ "60-64",
+    age_at_diagnosis >= 65 &
+      age_at_diagnosis < 70     ~ "65-69",
+    age_at_diagnosis >= 70 &
+      age_at_diagnosis < 75     ~ "70-74",
+    age_at_diagnosis >= 75 &
+      age_at_diagnosis < 80     ~ "75-79",
+    age_at_diagnosis >= 80       ~ ">=80",
+  ), age_cat = factor(age_cat, levels = c("<50", "50-54", "55-59",
+                                          "60-64", "65-69", "70-74",
+                                          "75-79", ">=80"))) %>% 
+  mutate(bmi_cat = case_when(
+    bmi < 25                    ~ "Underweight and normal weight",
+    bmi >= 25 &
+      bmi < 30                  ~ "Overweight",
+    bmi >= 30                   ~ "Obese"
+  )) %>%
+  mutate(bmi_cat = factor(bmi_cat, levels = c("Underweight and normal weight", "Overweight", "Obese")))  %>% 
+  mutate(bmi_cat2 = case_when(
+    bmi < 25                                         ~ "<25",
+    bmi >= 25 &
+      bmi < 30                                       ~ "25-29",
+    bmi >= 30 &
+      bmi < 35                                       ~ "30-34",
+    bmi >= 35                                        ~ "≥35"
+  )) %>% 
+  mutate(bmi_cat2 = factor(bmi_cat2, levels = c("<25", "25-29", "30-34", "≥35")))  %>% 
+  mutate(BCI = 
+           (1.4079 + 
+              (
+                (0.0039 * sat_area_cm2 - 0.0036 * vat_area_cm2 - 0.0309 * muscle_area_cm2) / 
+                  (height_m_ * height_m_)
+                
+              )) * 
+           (muscle_area_cm2 / imat_area_cm2)
+  ) %>% 
+  mutate(BCI_roswell_cat = case_when(
+    BCI < 3.48                             ~ "Low",
+    BCI >= 3.48                            ~ "High"
+  ), BCI_roswell_cat = factor(BCI_roswell_cat, levels = c("High", "Low"))) %>% 
+  mutate(debulking_status = str_to_sentence(debulking_status),
+         debulking_status = case_when(
+           debulking_status == "Complete"            ~ "Optimal",
+           is.na(debulking_status)                   ~ "Unknown",
+           TRUE                                      ~ debulking_status
+         ), debulking_status = factor(debulking_status, 
+                                      levels = c("Optimal", "Suboptimal", "Unknown"))
+  ) %>% 
+  mutate(tnm_cs_mixed_group_stage = case_when(
+    tnm_cs_mixed_group_stage == 1 |
+    tnm_cs_mixed_group_stage == 2             ~ "I-II",
+    tnm_cs_mixed_group_stage == 3             ~ "III",
+    tnm_cs_mixed_group_stage == 4             ~ "IV",
+    tnm_cs_mixed_group_stage == 9             ~ "III",
+    is.na(tnm_cs_mixed_group_stage)           ~ "III",
+    TRUE                                      ~ as.character(tnm_cs_mixed_group_stage)
+  )) %>% 
+  mutate(tnm_cs_mixed_group_stage = factor(tnm_cs_mixed_group_stage, levels = c("I-II", 
+                                                                                "III", "IV"#, 
+                                                                                # "Unknown"
+                                                                                ))) %>% 
+  # censoring at 5 years
+  mutate(os_time_5year = case_when(
+    os_time_from_dx_Jan2025 <= (5 * 12)       ~ os_time_from_dx_Jan2025,
+    os_time_from_dx_Jan2025 > (5 * 12)        ~ 60,
+    TRUE                                      ~ NA_real_
+  )) %>% 
+  mutate(os_event_5year = case_when(
+    os_time_from_dx_Jan2025 <= 60             ~ os_event_Jan2025,
+    os_time_from_dx_Jan2025 > 60              ~ 0,
+    TRUE                                      ~ NA_real_
+  ))
+
+```
+
+```{r Labeling data}
+var_label(moffitt_data) <- list(age_at_diagnosis = "Patient age", 
+                            tnm_cs_mixed_group_stage = "Stage",
+                            debulking_status = "Debulking status"
+                            
+)
+```
+
+# Roswell BCI
+## 1. Table 1. Patient characteristics and body composition depots overall
+```{r}
+moffitt_data %>% 
+  select(muscle_area_cm2, imat_area_cm2, vat_area_cm2, sat_area_cm2, total_fat_area,
+         BCI_roswell_cat,
+         age_at_diagnosis, age_cat,
+         tnm_cs_mixed_group_stage,
+         debulking_status
+         ) %>% 
+  tbl_summary(by = BCI_roswell_cat,
+              digits = all_continuous() ~ 1
+  ) %>%  
+  bold_labels() %>% add_overall() %>% 
+  # add_p() %>% 
+  add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+## 2. Overall Survival
+```{r HR OS overall pop}
+coxph(Surv(time = moffitt_data$os_time_5year,
+             event = moffitt_data$os_event_5year) ~ 
+          BCI_roswell_cat + strata(age_cat) + tnm_cs_mixed_group_stage + strata(debulking_status),
+        data =  moffitt_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+```{r}
+print("PH assumption")
+coxph(Surv(time = moffitt_data$os_time_5year,
+             event = moffitt_data$os_event_5year) ~ 
+          BCI_roswell_cat + strata(age_cat) + tnm_cs_mixed_group_stage + strata(debulking_status),
+        data =  moffitt_data)  %>% 
+  cox.zph()
+# test.ph <- coxph(Surv(time = moffitt_data$os_time_5year_from_dx_Nov2024,
+#              event = moffitt_data$os_event_5year) ~
+#           BCI_roswell_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + (debulking_status),
+#         data =  moffitt_data)  %>%
+#   cox.zph()
+# 
+# ggcoxzph(test.ph)
+```
+
+```{r}
+# moffitt_data %>% 
+#   ggplot(aes(x = age_at_diagnosis))+
+#   geom_histogram()
+```
+
+
+```{r}
+# formula <- timelastfu ~ refage + stage_binary + avg_tumor_percent_cd3plus_cd8plus
+# event <- "vitalstatus"
+# metric <- "uni k"
+# metric = unlist(strsplit(metric, split = " "))
+# value <-  "avg_K_fundiff"
+# r <- "r"
+# 
+# analysis_vars = unique(c(all.vars(formula),
+#                            event))
+# 
+# 
+# 
+# form = deparse(stats::formula(formula))
+# 
+# mxfundata = mxfda:::get_data(mxFDAobject_cd3_cd8, metric, 'summaries') %>%
+#     filter_data(NULL) %>%
+#     dplyr::full_join(mxFDAobject_cd3_cd8@Metadata, by = mxFDAobject_cd3_cd8@sample_key) %>% 
+#     dplyr::full_join(avg_K_fundiffs_individual_cd3_cd8, join_by(suid, r)) %>% distinct(suid, r, .keep_all = TRUE) %>%
+#     filter(r >= 5) %>% 
+#     select("suid", "image_tag", "r", "avg_K_fundiff", "refage" , "stage_binary" , "abund_binary", "avg_tumor_percent_cd3plus_cd8plus", "timelastfu" , "vitalstatus") %>% distinct()
+# 
+# 
+# mxfundata <- mxfda:::process_fcm(mxfundata, mxFDAobject_cd3_cd8@sample_key, r, value, analysis_vars)
+# 
+# 
+# # form =  paste0(form, '+ s(t_int, by=l_int*func*abundace, bs="cr", k=20)')
+# 
+# form =  paste0(form, '+ s(t_int, by=l_int*func, bs="cr", k=20)')
+#     weights = mxfundata[[event]]
+#     fit_fcm <- mgcv::gam(formula = stats::as.formula(form),
+#                    weights = weights,
+#                    data = mxfundata,
+#                    family = mgcv::cox.ph(),
+#                    method = "GCV.CP")
+# 
+#     class(fit_fcm) <- append("lfcm", class(fit_fcm))
+# 
+# model_name <- "fit_lfcm"
+# mxFDAobject_cd3_cd8@`functional_cox`$Kest[[model_name]] = fit_fcm
+# lfcm_surface = extract_surface(mxFDAobject_cd3_cd8, metric = "uni k", model = "fit_lfcm", analysis_vars = c(analysis_vars))
+# plot(lfcm_surface)
+```
+
+# Moffitt BCI
+
+## 1. Estimate a cut point specific to Moffitt dataset
+### BCI as a unique factor
+each plot has a diffrent p-value method
+```{r cut points BCI}
+library(maxstat)
+
+set.seed(1234)
+mstat <- maxstat.test(Surv(time = moffitt_data$os_time_5year,
+             event = moffitt_data$os_event_5year) ~ BCI,
+        data =  moffitt_data, 
+                      smethod="LogRank", pmethod="exactGauss", 
+                      abseps=0.01)
+mstat
+plot(mstat)
+
+
+# mstat <- maxstat.test(Surv(time = moffitt_data$os_time_5year,
+#              event = moffitt_data$os_event_5year) ~ BCI,
+#         data =  moffitt_data, 
+#                       smethod="LogRank", pmethod="Lau92", 
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+# 
+# mstat <- maxstat.test(Surv(time = moffitt_data$os_time_5year,
+#              event = moffitt_data$os_event_5year) ~ BCI,
+#         data =  moffitt_data, 
+#                       smethod="LogRank", pmethod="Lau94", 
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+# 
+# mstat <- maxstat.test(Surv(time = moffitt_data$os_time_5year,
+#              event = moffitt_data$os_event_5year) ~ BCI,
+#         data =  moffitt_data, 
+#                       smethod="LogRank", pmethod="HL", 
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+# 
+# mstat <- maxstat.test(Surv(time = moffitt_data$os_time_5year,
+#              event = moffitt_data$os_event_5year) ~ BCI,
+#         data =  moffitt_data, 
+#                       smethod="LogRank", pmethod="condMC", 
+#                       abseps=0.01)
+# mstat
+# plot(mstat)
+```
+
+<!-- ### BCI + age_at_diagnosis -->
+<!-- ```{r cut points BCI + age_at_diagnosis} -->
+<!-- mstat <- maxstat.test(Surv(time = moffitt_data$os_time_5year, -->
+<!--              event = moffitt_data$os_event_5year) ~ age_cat + BCI, -->
+<!--         data =  moffitt_data, -->
+<!--                       smethod="LogRank", pmethod="exactGauss", -->
+<!--                       abseps=0.01) -->
+<!-- mstat -->
+<!-- # mstat[["maxstats"]][[2]][["estimate"]] -->
+<!-- plot(mstat) -->
+<!-- ``` -->
+
+```{r}
+moffitt_data <- moffitt_data %>% 
+  mutate(BCI_moffitt_cat = case_when(
+    BCI < 3.37                             ~ "Low",
+    BCI >= 3.37                            ~ "High"
+  ), BCI_moffitt_cat = factor(BCI_moffitt_cat, levels = c("High", "Low")))
+```
+
+
+
+```{r}
+moffitt_data %>% 
+  select(muscle_area_cm2, imat_area_cm2, vat_area_cm2, sat_area_cm2, total_fat_area,
+         BCI_moffitt_cat,
+         # BCI_cat,
+         debulking_status, 
+         age_at_diagnosis, age_cat,
+         tnm_cs_mixed_group_stage
+         ) %>% 
+  tbl_summary(by = BCI_moffitt_cat,
+              digits = all_continuous() ~ 1
+  ) %>%  
+  bold_labels() %>% add_overall() %>% 
+  # add_p() %>% 
+  add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+## 2. Overall Survival
+```{r HR OS moffitt BCI}
+coxph(Surv(time = moffitt_data$os_time_5year,
+             event = moffitt_data$os_event_5year) ~ 
+          BCI_moffitt_cat + strata(age_cat) + tnm_cs_mixed_group_stage + strata(debulking_status),
+        data =  moffitt_data) %>%
+  tbl_regression(exponentiate = TRUE) %>% bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% add_n(location = "level")
+```
+
+```{r}
+print("PH assumption")
+coxph(Surv(time = moffitt_data$os_time_5year,
+             event = moffitt_data$os_event_5year) ~ 
+          BCI_moffitt_cat + strata(age_cat) + tnm_cs_mixed_group_stage + strata(debulking_status),
+        data =  moffitt_data)  %>% 
+  cox.zph()
+```
+
+
+
+
+
+
+
+
+
+
