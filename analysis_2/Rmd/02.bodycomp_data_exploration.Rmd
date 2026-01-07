@@ -1,0 +1,598 @@
+---
+title: "Body composition features exploration"
+author: "Christelle Colin-Leitzinger"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: kable
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.align='center'
+                      )
+```
+
+```{r library, echo = FALSE}
+library(tidyverse)
+library(labelled)
+library(gtsummary)
+library(ggcorrplot)
+library(survminer)
+library(survival)
+theme_gtsummary_compact()
+theme_set(theme_classic())
+```
+
+```{r load}
+path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics")
+# combined_mr_data <- read_rds(paste0(here::here(), 
+#                                  "/data/processed_data/first_analysis",
+#                                  "/combined Moffitt-Roswell body comp data_2025-04-30.rds"))
+
+# Moffitt
+###_______________________ custom function _______________________###
+fct_name_repair <- function(colnms) {
+  tolower(gsub("[, ()=/]", "_", colnms))
+}
+###_______________________________________________________________###
+body_comp <-
+  readxl::read_xlsx(paste0(path, "/CTbased adiposity",
+                           "/dataset/CT data 09272021.xlsx"),
+                    .name_repair = fct_name_repair) %>% 
+  `colnames<-`(str_replace(colnames(.), "__", "_"))
+# clinical_data <-
+#   read_csv(paste0(path, "/CTbased adiposity",
+#                   "/dataset/ForDan_clinical_modif_06092022.csv"))
+updated_survival <- 
+  read_rds(paste0(path, 
+                  "/Grant applications/Miles for Moffitt/data/",
+                  "processed data/Ovarian_Normalized_Radiomics_Features_30Apr2025.rds")) %>% 
+  `colnames<-`(str_replace(colnames(.), "__", "_"))
+
+# Roswell
+roswell_data <-
+  readxl::read_xlsx(paste0(#here::here(), "/data/raw_data",
+                           path, "/Roswell CTs (May 2024)/Dataset",
+                           "/De-ID Data Set for Moffitt 04032024.xlsx"))
+
+
+parent_dir_path <- dirname(here::here())
+sigma_data <- read_rds(paste0(parent_dir_path, "/radiomics_sigma",
+                                 "/data/processed_data",
+                                 "/Sigma_HGSC_patients_data_2025-11-07.rds"))
+```
+
+```{r load dafs}
+dafs <- read_rds(paste0(here::here(), "/data/raw_data",
+                        # path, "/QICore_DAFs_Analysis/QC Review",
+                        "/Ovarian_DAFS_selected_series_19Nov2025.rds")) %>% 
+  mutate(across(everything(), ~ str_replace_na(.))) #%>% 
+  # janitor::clean_names()
+
+dafs1 <- type.convert(dafs, as.is = TRUE)
+```
+
+```{r prepare roswell data}
+roswell_data1 <- roswell_data %>% 
+  `colnames<-`(str_to_lower(colnames(.)) %>% str_replace(., "ti_1$", "t_index") %>%  str_remove(., "^pre_")) %>% 
+  `colnames<-`(str_remove(colnames(.), "_1$")) %>% 
+  rename(roswell_id = studyid, 
+         age_at_diagnosis = agedx, 
+         tumor_site = site,
+         stage_clinical = cstage, stage_path = pstage,
+         tnm_cs_mixed_group_stage = combined_stage, 
+         roswell_grade = grade, roswell_grade_3 = grade_3,
+         roswell_lymph_node_status = nodes,
+         alcohol_use = alc, smoking_status = tob,
+         os_event = survstat,
+         ovca_specific_os_event = dsurvstat,
+         os_time_from_dx_months = survtime,
+         rec_event = recstat, rec_time_from_dx_months = rectime,
+                
+         roswell_immunotherapy_yes_no = immunotherapy_yes_no,
+         roswell_immunotherapy_description = immunotherapy_description,
+         hypertension = htn, cardiovascular_disease = cardiac, hypercholesterolemia = hyperchol,
+         Hyperlipidemia = hyperlipid,
+         renal_disease = renal,
+         height_cm = ht_first, height_m = ht_first_met,
+         histolog_cd = histology, histolog_desc = histologydescription,
+         hgs_vs_nonhgs = hgs_full_2,
+         is_sat_extended = subqout_pre, is_postsat_extended = subqout_post,
+         sat = subq,
+         imat = ima,
+         weight_kg = chemo_start_wgt, chemo_end_weight_kg = chemo_end_wgt,
+         debulking = debulk, ascites_volume = ascites_1_num,
+         ascites = ascites_1_yes_no
+  ) %>% 
+  select(-race_2) %>% 
+  mutate(race = case_when(
+    race == "Unknown"              ~ NA_character_,
+    TRUE                           ~ race
+  )) %>% 
+  mutate(treatment_type = case_when(
+    neo == 0                       ~ "upfront surgery", 
+    neo == 1                       ~ "upfront chemo"
+  )) %>% 
+  mutate(rec_event = case_when(
+    rec_event == 0                  ~ 0,
+    rec_event == 1                  ~ 1,
+    rec_event == 2                  ~ 0,
+    rec_event == 9                  ~ NA_real_,
+    TRUE                            ~ rec_event
+  )) %>% 
+  mutate(site = "Roswell", .before = 1) %>% 
+  mutate(sarcopenia = case_when(
+    sarcopenia == 1                                          ~ "Yes",
+    sarcopenia == 0                                          ~ "No"
+  )) %>% 
+  mutate(martin = case_when(
+    smi < 41                                                ~ "Sarcopenia",
+    TRUE                                                    ~ "No sarcopenia"
+  )) %>% 
+  mutate(ascites = case_when(
+    ascites == 0                    ~ "absence",
+    ascites == 1                    ~ "presence"
+  )) %>% 
+  mutate(debulking = case_when(
+    debulking == "SUB"              ~ "Suboptimal",
+    debulking == "UNKNOWN"          ~ NA_character_,
+    debulking == "OPTIMAL"          ~ "Optimal",
+    debulking == "COMPLETE"         ~ "Optimal",
+    TRUE                            ~ str_to_sentence(debulking)
+  ))
+```
+
+```{r prepare moffitt data}
+body_comp1 <- body_comp %>% 
+  purrr::keep(~!all(is.na(.))) %>%
+  mutate(mrn = as.character(mrn)) %>% 
+  `colnames<-`(str_remove(colnames(.), "_area_cm2")) %>% 
+  mutate(baseline_ct_scan_date = as.Date(baseline_ct_scan_date)) %>% 
+  rename(moffitt_id = id, height_cm = height_cms_, height_m = height_m_,
+         ascites_severity = ascites,
+         sma = muscle) %>% 
+  mutate(site = "Moffitt", .before = 1) %>% 
+  mutate(weight_kg = case_when(
+    weight_unit == "kg" |
+      weight_unit == "Kg"                  ~ weight,
+    weight_unit == "lbs"                   ~ weight / 2.205
+  )) %>% 
+  select(-c(weight, weight_unit)) %>% 
+  mutate(ascites_severity = case_when(
+    is.na(ascites_severity)                ~ "absence",
+    str_detect(ascites_severity, 
+               "tumor")                    ~ "absence",
+    str_detect(ascites_severity, 
+               "moderate")                 ~ "moderate",
+    str_detect(ascites_severity, 
+               "severe")                   ~ "severe",
+    str_detect(ascites_severity, 
+               "mild")                     ~ "mild"
+  )) %>% 
+  mutate(ascites = case_when(
+    str_detect(ascites_severity, 
+               "absence")                  ~ "absence",
+    str_detect(ascites_severity, 
+               "moderate|severe|mild")     ~ "presence"
+  ))
+
+updated_survival1 <- updated_survival %>% 
+  rename(debulking = debulking_status, 
+         diabetes = diabetes_mellitus, 
+         race_all = race_cancer_registry) %>% 
+  mutate(mrn = as.character(mrn)) %>% 
+  distinct(mrn, .keep_all = TRUE) %>% 
+  # Outcome
+  mutate(os_time_from_dx_months = round(interval(start = date_of_diagnosis, end = fwdate_most_recent)/
+                                   duration(n=1, units = "months"), 2)) %>%
+  mutate(pfs_enddate = case_when(
+    rec_event == 0 & 
+      os_event == 1                      ~ fwdate_most_recent, #only use date of death when death occurred but no recurrence
+    TRUE                                 ~ rec_event_date, # use recurrence date for everything else
+  )) %>% 
+  mutate(pfs_time_from_dx_months = round(interval(start = date_of_diagnosis, end = pfs_enddate)/
+                                   duration(n=1, units = "months"), 2)) %>%
+  # Date for merging
+  mutate(baseline_ct_scan_date = as.Date(baseline_ct_scan_date, format = "%m/%d/%Y")) %>% 
+  # clinical
+  mutate(debulking = case_when(
+    debulking == "incomplete records"                    ~ NA_character_,
+    str_detect(debulking, "^optimal \\(")                ~ "Optimal",
+    str_detect(debulking, "^suboptimal \\(")             ~ "Suboptimal",
+    str_detect(debulking, "^complete \\(")               ~ "Optimal"
+  )) %>% 
+  mutate(race_all = str_to_lower(race_all)) %>% 
+  mutate(race = case_when(
+    race_all == "White"       ~ "White",
+    race_all == "Black"       ~ "Black",
+    race_all == "UNKNO"       ~ NA_character_,
+    !is.na(race_all)          ~ "Other"
+  )) %>% 
+  # Remove unnecessary variables
+  select(-c(starts_with("nor_"), matches("^f[1-9]")))
+
+moffitt_data <- left_join(body_comp1, updated_survival1, 
+                          by=c("mrn", "date_of_diagnosis", "baseline_ct_scan_date")) %>% # keep patient with ct image
+  
+  purrr::keep(~!all(is.na(.))) %>%
+  # Eight patients were excluded due to coverage artifacts
+  filter(is.na(should_exclude)) %>% 
+  # Eight patients were excluded due to incomplete or missing CT images 
+  filter(!is.na(sma)) %>% 
+  mutate(mrn = as.character(mrn)) %>% 
+  
+  # Create variable
+  mutate(smi = sma / (height_m * height_m)) %>% 
+  mutate(sarcopenia = case_when(
+    smi <= 38.73                                            ~ "Yes",
+    TRUE                                                    ~ "No"
+  )) %>% 
+  mutate(martin = case_when(
+    smi < 41                                                ~ "Sarcopenia",
+    TRUE                                                    ~ "No sarcopenia"
+  )) %>% 
+  mutate(treatment_type = case_when(
+    treatment_type == "upfront neoadjuvant"                 ~ "upfront chemo",
+    TRUE                                                    ~ treatment_type
+  ))
+```
+
+```{r prepare sigma data}
+sigma_data1 <- sigma_data %>% 
+  mutate(site = "Sigma", .before = 1) %>%
+  rename(race_all = race,
+         debulking = debulking_status) %>% 
+  mutate(race = case_when(
+    race_all == "White"       ~ "White",
+    race_all == "Black"       ~ "Black",
+    !is.na(race_all)          ~ "Other"
+  )) %>% 
+  mutate(debulking = case_when(
+    str_detect(debulking, "Suboptimal")           ~ "Suboptimal",
+    str_detect(debulking, "Optimal")              ~ "Optimal",
+    str_detect(debulking, "complete")             ~ "Optimal",
+  )) %>% 
+  mutate(treatment_type = case_when(
+    treatment_type == "Neoadjuvant"              ~ "upfront chemo",
+    treatment_type == "Adjuvant"                 ~ "upfront surgery"
+  ))
+```
+
+```{r join}
+set.seed(1234)
+clinical_data <- bind_rows(roswell_data1,
+                       moffitt_data,
+                       sigma_data1) %>% 
+  mutate(study_name = paste0(site, "_")) %>%
+    mutate(row = row_number()) %>% 
+  group_by(row = factor(row, levels = sample(unique(row)))) %>%
+  mutate(random_id = cur_group_id()) %>%
+  ungroup() %>%
+  mutate(zero = 6 - nchar(random_id)) %>%
+  mutate(add_zero = stringi::stri_dup("0", zero)) %>%
+  select(c(study_name, add_zero, random_id, mrn, everything())) %>%
+  unite(deidentified_patient_id, study_name:random_id, sep = "", remove = TRUE) %>% 
+  mutate(ct_patient_id = coalesce(mrn, roswell_id)) %>% 
+  select(deidentified_patient_id, ct_patient_id,
+         everything(), 
+         -c(roswell_id, moffitt_id, mrn, zero), 
+         roswell_id, moffitt_id, mrn)
+```
+
+# Body composition
+
+```{r feature characteristics}
+dafs1 %>%
+  select(#phase,
+         #selected_series,
+         # exclude_flag,
+         set
+         ) %>%
+  tbl_summary(type = everything() ~ "categorical") %>%
+  bold_labels() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+```
+
+```{r}
+dafs2 <- dafs1 #%>% 
+  # filter(exclude_flag == 0) %>% 
+  # filter(selected_series == "TRUE") %>% 
+  # distinct(ct_PatientID, .keep_all = TRUE)
+```
+
+Found in this paper https://pmc.ncbi.nlm.nih.gov/articles/PMC7614477/
+Body composition was measured using three exploratory boundaries to estimate muscle and fat distributions at the level of the third lumbar vertebra (L3).  
+‘avg-L3mid[3]’ command, which measures across 3 slices above and below the midst of L3 in order to increase data accuracy.
+Figure S19    
+The following Hounsfield unit (HU) boundaries were used: For SAT -190 to -30 HU, for VAT -150 to -50 HU and for SKM -29 to 150 HU.   
+L3mid: Refers to a measurement taken at a single, specific axial slice at the midpoint of the L3 vertebra.  
+L3start-L3end: Refers to a multi-slice or volumetric measurement encompassing the entire length of the L3 vertebra.  
+
+
+Hounsfield unit
+
+
+# What variables
+```{r body comp existing var}
+body_comp_type <- colnames(dafs2 %>%
+  select("L3mid;SKM[-29,150];cross_sectional_area_pixels":
+         "L3mid-avg[3];ASCITES;HU_max"
+         )) %>% as_tibble() %>% 
+  `colnames<-`(c("variable"))
+
+body_comp_type1 <- body_comp_type %>% 
+  mutate(variable1= str_match(variable, "(.*);(.*);(.*)")[,1]) %>% 
+  mutate(region = str_match(variable, "(.*);(.*);(.*)")[,2]) %>% 
+  mutate(feature = str_match(variable, "(.*);(.*);(.*)")[,3]) %>% 
+  mutate(unit = str_match(variable, "(.*);(.*);(.*)")[,4])
+
+body_comp_type1 %>%
+  select(region, feature, unit
+         ) %>%
+  filter(!is.na(region)) %>% 
+  tbl_summary() %>%
+  bold_labels() %>%
+  modify_column_hide(columns = "stat_0")%>%
+  modify_header(label ~ "**DAFS data**")
+
+body_comp_type1 %>%
+  select(region, feature
+         ) %>%
+  filter(!is.na(region)) %>% 
+  tbl_summary(by = region) %>%
+  bold_labels()
+
+# show_header_names(a, show_hidden=TRUE)
+
+
+selected_features <- body_comp_type1 %>% 
+  filter(
+    (str_detect(feature, "NOARMS") & unit == "cross_sectional_area_cm2") |
+    (str_detect(feature, "NOARMS") & unit == "HU_median") |
+    (feature %in% c("ASCITES", "SAT", "VAT") & unit == "cross_sectional_area_cm2") |
+    (feature %in% c("ASCITES", "SAT", "VAT") & unit == "HU_median"))
+```
+
+```{r join with clinical}
+data <- dafs2 %>% 
+  select(ct_PatientID, selected_features$variable) %>% 
+  janitor::clean_names() %>% 
+  `colnames<-`(str_replace(colnames(.), "l3mid_avg_3_", "l3midavg_") %>% 
+                 str_replace(., "allskm_29_150_", "skm_") %>% 
+                 str_replace(., "allimat_190_30_", "imat_") %>% 
+                 str_remove(., "_noarms") %>% 
+                 str_remove(., "cross_sectional_")) %>% 
+  # slice(1:424) %>% 
+  inner_join(., clinical_data,
+             by = "ct_patient_id")
+```
+
+# Compare the different L3 regions
+```{r ggcorrplot}
+midavg_vs_mid_data <- data %>%
+  select(starts_with("l3mid_") & contains("skm_hu"),
+         starts_with("l3mid_") & ends_with("_cm2"), 
+         l3mid_ascites_hu_median,
+         
+         starts_with("l3start_l3end_") & contains("skm_hu"),
+         starts_with("l3start_l3end_") & ends_with("_cm2"), 
+         l3start_l3end_ascites_hu_median,
+         
+         starts_with("l3midavg_") & contains("skm_hu"),
+         starts_with("l3midavg_") & ends_with("_cm2"), 
+         l3midavg_ascites_hu_median
+         )
+  # `colnames<-`(str_remove(colnames(.), "l3midavg_") %>% str_remove(., "l3mid"))
+  
+midavg_vs_mid_data <- cor(midavg_vs_mid_data, use = "pairwise.complete.obs")
+midavg_vs_mid_data2 <- midavg_vs_mid_data %>% as_tibble(rownames = "features")
+
+midavg_vs_mid_data3 <- midavg_vs_mid_data2 %>% 
+  mutate(across(starts_with("l3mid_"), ~ case_when(
+    str_detect(features, "l3mid_")          ~ 0,
+    TRUE                                    ~ .
+  ))) %>% 
+  mutate(across(starts_with("l3start_l3end_"), ~ case_when(
+    str_detect(features, "l3start_l3end_")  ~ 0,
+    TRUE                                    ~ .
+  ))) %>% 
+  mutate(across(starts_with("l3midavg_"), ~ case_when(
+    str_detect(features, "l3midavg_")       ~ 0,
+    TRUE                                    ~ .
+  )))
+midavg_vs_mid_data3 <- midavg_vs_mid_data3 %>%
+  filter((str_detect(features, "l3mid_")) |
+           (str_detect(features, "l3midavg_"))) %>% 
+  column_to_rownames(var = "features") %>% 
+  select(starts_with("l3start_l3end_"), starts_with("l3midavg_")) %>% 
+  as.matrix()
+
+ggcorrplot(midavg_vs_mid_data3, #hc.order = TRUE, 
+           method = "circle", 
+           # type = "lower", 
+           lab = TRUE, 
+           title = "Correlation between features of different region",
+           show.legend = TRUE, legend.title = "Correlation", show.diag = TRUE,
+           lab_col = "darkblue", lab_size = 3, 
+           sig.level = 0.05, insig = c("pch", "blank"), pch = 4, pch.col = "black", pch.cex = 10, 
+           tl.cex = 10, tl.col = "green", tl.srt = 40,
+           digits = 2
+)
+```
+
+Another way to see it.
+```{r geom_tile}
+midavg_vs_mid_data4 <- midavg_vs_mid_data2 %>% 
+  pivot_longer(cols = - features) %>% 
+  filter(str_detect(features, "skm_hu_median") & str_detect(name, "skm_hu_median") |
+           str_detect(features, "skm_area_cm2") & str_detect(name, "skm_area_cm2") |
+           str_detect(features, "imat_area_cm2") & str_detect(name, "imat_area_cm2") |
+           str_detect(features, "sat_area_cm2") & str_detect(name, "sat_area_cm2") |
+           str_detect(features, "vat_area_cm2") & str_detect(name, "vat_area_cm2") |
+           str_detect(features, "ascites_area_cm2") & str_detect(name, "ascites_area_cm2") |
+           str_detect(features, "ascites_hu_median") & str_detect(name, "ascites_hu_median")
+           ) %>% 
+  filter(features != name) %>% 
+  mutate(feature = 
+           str_match(features,
+                     "(skm_hu_median|skm_area_cm2|imat_area_cm2|sat_area_cm2|vat_area_cm2|ascites_area_cm2|ascites_hu_median)")[,1],
+         .after = features) %>% 
+  mutate(region = 
+           str_match(name,
+                     "(l3mid_|l3start_l3end_|l3midavg_)")[,1],
+         .after = name) %>% 
+  filter((str_detect(features, "l3mid_") & region == "l3start_l3end_") |
+           (str_detect(features, "l3mid_") & region == "l3midavg_") |
+           (str_detect(features, "l3start_l3end_") & region == "l3midavg_"))
+
+midavg_vs_mid_data4 %>% 
+  ggplot(aes(x = region, y = features, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red") +
+  labs(fill = "Correlation")
+```
+
+
+
+# Compare sclicomatic vs DAFS
+## Moffitt + Roswell
+```{r limit data to moffitt roswell}
+limited_dat <- clinical_data %>% 
+  filter(site %in% c("Moffitt", "Roswell")) %>% 
+  select(deidentified_patient_id : site, sma, imat, vat, sat) %>% 
+  inner_join(., dafs2 %>% 
+               select(ct_PatientID, selected_features$variable), 
+             by = c("ct_patient_id" = "ct_PatientID")) %>% 
+  janitor::clean_names() %>%
+  `colnames<-`(str_replace(colnames(.), "l3mid_avg_3_", "l3midavg_") %>%
+                 str_replace(., "allskm_29_150_", "skm_") %>%
+                 str_replace(., "allimat_190_30_", "imat_") %>%
+                 str_remove(., "_noarms") %>% 
+                 str_remove(., "cross_sectional_"))
+```
+
+```{r}
+midavg_vs_mid_data <- limited_dat %>%
+  select(sma, imat, vat, sat,
+         starts_with("l3mid_") & ends_with("_cm2"), 
+         starts_with("l3start_l3end_") & ends_with("_cm2"), 
+         starts_with("l3midavg_") & ends_with("_cm2"), 
+         -contains("ascites")
+         )
+
+midavg_vs_mid_data <- cor(midavg_vs_mid_data, use = "pairwise.complete.obs")
+midavg_vs_mid_data2 <- midavg_vs_mid_data %>% as_tibble(rownames = "features")
+
+midavg_vs_mid_data4 <- midavg_vs_mid_data2 %>% 
+  pivot_longer(cols = - features) %>% 
+  filter(features != name) %>% 
+  filter(features %in% c("sma", "imat", "vat", "sat"),
+         str_detect(features, "sma") & str_detect(name, "skm_area_cm2") |
+           str_detect(features, "imat") & str_detect(name, "imat_area_cm2") |
+           str_detect(features, "vat") & str_detect(name, "vat_area_cm2") |
+           str_detect(features, "sat") & str_detect(name, "sat_area_cm2")
+           ) %>% 
+  mutate(region = 
+           str_match(name,
+                     "(l3mid_|l3start_l3end_|l3midavg_)")[,1],
+         .after = name)
+
+midavg_vs_mid_data4 %>% 
+  ggplot(aes(x = region, y = features, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label = round(value, 2)), color = "black")+
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red") +
+  labs(fill = "Correlation")
+```
+
+## For Moffitt
+```{r}
+midavg_vs_mid_data <- limited_dat %>%
+  filter(site == "Moffitt") %>% 
+  select(sma, imat, vat, sat,
+         starts_with("l3mid_") & ends_with("_cm2"), 
+         starts_with("l3start_l3end_") & ends_with("_cm2"), 
+         starts_with("l3midavg_") & ends_with("_cm2"), 
+         -contains("ascites")
+         )
+
+midavg_vs_mid_data <- cor(midavg_vs_mid_data, use = "pairwise.complete.obs")
+midavg_vs_mid_data2 <- midavg_vs_mid_data %>% as_tibble(rownames = "features")
+
+midavg_vs_mid_data4 <- midavg_vs_mid_data2 %>% 
+  pivot_longer(cols = - features) %>% 
+  filter(features != name) %>% 
+  filter(features %in% c("sma", "imat", "vat", "sat"),
+         str_detect(features, "sma") & str_detect(name, "skm_area_cm2") |
+           str_detect(features, "imat") & str_detect(name, "imat_area_cm2") |
+           str_detect(features, "vat") & str_detect(name, "vat_area_cm2") |
+           str_detect(features, "sat") & str_detect(name, "sat_area_cm2")
+           ) %>% 
+  mutate(region = 
+           str_match(name,
+                     "(l3mid_|l3start_l3end_|l3midavg_)")[,1],
+         .after = name)
+
+midavg_vs_mid_data4 %>% 
+  ggplot(aes(x = region, y = features, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label = round(value, 2)), color = "black")+
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red") +
+  labs(fill = "Correlation")
+```
+
+## For Roswell
+```{r}
+midavg_vs_mid_data <- limited_dat %>%
+  filter(site == "Roswell") %>% 
+  select(sma, imat, vat, sat,
+         starts_with("l3mid_") & ends_with("_cm2"), 
+         starts_with("l3start_l3end_") & ends_with("_cm2"), 
+         starts_with("l3midavg_") & ends_with("_cm2"), 
+         -contains("ascites")
+         )
+
+midavg_vs_mid_data <- cor(midavg_vs_mid_data, use = "pairwise.complete.obs")
+midavg_vs_mid_data2 <- midavg_vs_mid_data %>% as_tibble(rownames = "features")
+
+midavg_vs_mid_data4 <- midavg_vs_mid_data2 %>% 
+  pivot_longer(cols = - features) %>% 
+  filter(features != name) %>% 
+  filter(features %in% c("sma", "imat", "vat", "sat"),
+         str_detect(features, "sma") & str_detect(name, "skm_area_cm2") |
+           str_detect(features, "imat") & str_detect(name, "imat_area_cm2") |
+           str_detect(features, "vat") & str_detect(name, "vat_area_cm2") |
+           str_detect(features, "sat") & str_detect(name, "sat_area_cm2")
+           ) %>% 
+  mutate(region = 
+           str_match(name,
+                     "(l3mid_|l3start_l3end_|l3midavg_)")[,1],
+         .after = name)
+
+midavg_vs_mid_data4 %>% 
+  ggplot(aes(x = region, y = features, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label = round(value, 2)), color = "black")+
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red") +
+  labs(fill = "Correlation")
+```
+
+
+
+
+
+
+
+
