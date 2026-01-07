@@ -13,10 +13,12 @@
 *.log
 *.png
 *.html
+*.jpeg
 *.jpg
 *.csv
 *.rds
 *.pptx
+/data
 
 # Example code in progress
 *-Ex.R

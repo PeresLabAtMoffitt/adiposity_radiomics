@@ -1,0 +1,252 @@
+---
+title: "Moffitt New Models"
+output: html_document
+date: "2025-12-04"
+---
+
+data must include the following features: survstat, survtime, ht_first_met, PRE_SMA_1, PRE_SUBQ_1, PRE_IMA_1, PRE_VAT_1, PRE_TAT_1
+
+survstat = survival status
+survtime = survival time
+ht_first_met = height in meters
+PRE_SMA_1 = skeletal muscle area, equivalent to muscle_area_cm2
+
+PRE_SUBQ_1 = skeletal muscle area, equivalent to imat_area_cm2
+    
+PRE_IMA_1 = intramuscular adipose area, equivalent to vat_area_cm2
+    
+PRE_VAT_1 = visceral adipose area, equivalent to sat_area_cm2
+    
+PRE_TAT_1 = total adipose area, equivalent to total_fat_area
+
+    
+necessary libraries
+```{r}
+library(dplyr)
+library(recipes)
+library(glmnet)
+library(selectiveInference)
+library(lars)
+library(L0Learn)
+library(survminer)
+library(survival)
+```
+
+load data and models
+```{r}
+set.seed(1)
+
+### read in data: xlsx or csv
+
+#data = read.xlsx("C://PhD work//EOC-body-comp//De-ID Data Set for Moffitt 04032024.xlsx", 1)
+data = read.csv("C://PhD work//EOC-body-comp//De-ID Data Set for Moffitt 04032024.csv")
+
+#check whether data has necessary columns
+features = c("survstat", "survtime", "ht_first_met", "PRE_SMA_1", "PRE_SUBQ_1", "PRE_IMA_1", "PRE_VAT_1", "PRE_TAT_1", "pre_smi_1")
+
+#all features must be in imported data, should return TRUE
+#if returns FALSE, data is missing some features or features are incorrectly named
+
+all(features %in% colnames(data))
+```
+
+Load saved models trained on Roswell data
+EOC_Models includes: recipe features, cvfit_lasso, beta, fit_lasso_inf, larfit, cv_lars_lar, fit_lars_lar, cvfit_L0
+
+```{r}
+load("C://PhD work//EOC-body-comp//EOC_models.RData")
+```
+
+
+Generate feature matrix from baseline CT features
+```{r warning=FALSE}
+#isolate features of interest and calculate indexes
+data_indices = data %>%
+        dplyr::select(survstat, ht_first_met, PRE_SMA_1, PRE_SUBQ_1, 
+                      PRE_IMA_1, PRE_VAT_1, PRE_TAT_1) %>%
+        mutate(SMI = PRE_SMA_1/ht_first_met) %>%
+        mutate(SFI = PRE_SUBQ_1/ht_first_met) %>%
+        mutate(VFI = PRE_VAT_1/ht_first_met) %>%
+        mutate(IMAI = PRE_IMA_1/ht_first_met) %>%
+        mutate(TATI = PRE_TAT_1/ht_first_met) %>% 
+        dplyr::select(-c(ht_first_met)) %>%
+        mutate(across(everything(), as.numeric))
+
+
+#generate ratios, polynomials, and products of features
+rec = recipe(survstat ~ ., data = data_indices) %>%
+    step_mutate(
+      ratio = PRE_SMA_1/PRE_SUBQ_1,
+      ratio2 = PRE_SMA_1/PRE_IMA_1,
+      ratio3  = PRE_SMA_1/PRE_VAT_1,
+      ratio4  = PRE_SMA_1/PRE_TAT_1,
+      ratio5  = PRE_SUBQ_1/PRE_SMA_1,
+      ratio6  = PRE_SUBQ_1/PRE_IMA_1,
+      ratio7  = PRE_SUBQ_1/PRE_VAT_1,
+      ratio8  = PRE_SUBQ_1/PRE_TAT_1,
+      ratio9  = PRE_IMA_1/PRE_SMA_1,
+      ratio10  = PRE_IMA_1/PRE_SUBQ_1,
+      ratio11  = PRE_IMA_1/PRE_VAT_1,
+      ratio12  = PRE_IMA_1/PRE_TAT_1,
+      ratio13  = PRE_VAT_1/PRE_TAT_1,
+      ratio14  = PRE_VAT_1/PRE_SMA_1,
+      ratio15  = PRE_VAT_1/PRE_IMA_1,
+      ratio16  = PRE_VAT_1/PRE_SUBQ_1
+      ) %>%
+    step_poly(all_numeric_predictors(), options = list(raw = TRUE)) %>%
+    step_interact(terms = ~ all_predictors():all_predictors()) %>%
+    step_zv(all_numeric_predictors()) %>%
+    step_normalize(all_numeric_predictors()) %>%
+    prep()
+
+data_final = juice(rec)
+data_final = data_final[recipe_features]
+X = model.matrix(survstat ~ . - 1, data = data_final)
+y = data_final$survstat
+
+
+#ensure X is scaled and centered, both expression should return TRUE
+max(apply(X, 2, mean)) < 0.001
+max(apply(X, 2, sd)) < 1.001
+```
+Predict regression values using new data
+```{r}
+#normal Lasso, alpha 0.1
+lasso_preds = predict(cvfit_lasso, newx = X, s = "lambda.min", type = "response")
+lasso_preds_1se = predict(cvfit_lasso, newx = X, s = "lambda.1se", type = "response")
+
+#lasso with selective inference
+
+vars = fit_lasso_inf$vars[which(fit_lasso_inf$pv < 0.1)]
+intercept = beta@x[1]
+index_inf = which(fit_lasso_inf$pv<0.1)+1 #add one because beta keeps intercept as first index
+
+coefs_inf = beta@x[index_inf]
+lasso_preds_inf = intercept + as.matrix(data_final[vars]) %*% as.vector(coefs_inf)
+
+#lar from selective inference package, full path
+lar_preds = predict(larfit, X, s = 335)[,1]
+
+#lar from lars package with cross-validation
+best_step <- which.min(cv_lars_lar$cv)  # index of best CV error
+lar_lars_preds = predict(fit_lars_lar, newx = X, s = best_step, mode = "step")$fit
+
+#L0 regularization
+optimalGammaIndex = which.min(lapply(cvfit_L0$cvMeans, min))
+optimalGamma = cvfit_L0$fit$gamma[optimalGammaIndex]
+optimalLambdaIndex = which.min(cvfit_L0$cvMeans[[optimalGammaIndex]])
+optimalLambda = cvfit_L0$fit$lambda[[optimalGammaIndex]][optimalLambdaIndex]
+L0_preds = predict(cvfit_L0, newx=X, lambda = optimalLambda, gamma = optimalGamma)@x
+```
+
+
+Pull base features of interest to create simplified data frame and append predictions
+```{r}
+
+#data = read.xlsx("C://PhD work//EOC-body-comp//De-ID Data Set for Moffitt 04032024.xlsx", 1)
+data = read.csv("C://PhD work//EOC-body-comp//De-ID Data Set for Moffitt 04032024.csv")
+
+data = data %>%
+  dplyr::select(survstat, survtime, ht_first_met, PRE_SMA_1, PRE_SUBQ_1, PRE_IMA_1, PRE_VAT_1, PRE_TAT_1) %>%
+  mutate(SMI = PRE_SMA_1/ht_first_met) %>%
+  mutate(SFI = PRE_SUBQ_1/ht_first_met) %>%
+  mutate(VFI = PRE_VAT_1/ht_first_met) %>%
+  mutate(IMAI = PRE_IMA_1/ht_first_met) %>%
+  mutate(TATI = PRE_TAT_1/ht_first_met) %>% 
+  mutate(SMD = PRE_SMA_1/PRE_IMA_1) %>%
+  mutate(DMAI = 1.918519 + -0.001840*PRE_VAT_1/ht_first_met^2 + -0.041920*PRE_SMA_1/ht_first_met^2 + 0.004743*PRE_SUBQ_1/ht_first_met^2) %>%
+  mutate(BCHI = SMD*DMAI) %>%
+  dplyr::select(-ht_first_met) %>%
+  mutate(across(everything(), as.numeric))
+
+#SMD = SMA/IMA
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("SMD"))
+res.cat <- surv_categorize(res.cut)
+logrank_SMD <- survdiff(Surv(survtime, survstat) ~ SMD, data = res.cat)
+logrank_SMD
+
+fit_SMD <- survfit(Surv(survtime, survstat) ~ SMD, data = res.cat)
+ggsurvplot(fit_SMD, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+#BCHI = DMAI * SMD
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("BCHI"))
+res.cat <- surv_categorize(res.cut)
+logrank_BCHI <- survdiff(Surv(survtime, survstat) ~ BCHI, data = res.cat)
+logrank_BCHI
+
+fit_BCHI <- survfit(Surv(survtime, survstat) ~ BCHI, data = res.cat)
+ggsurvplot(fit_BCHI, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+
+#normal lasso
+data$lasso_pred = lasso_preds[,1]
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("lasso_pred"))
+res.cat <- surv_categorize(res.cut)
+logrank_lasso <- survdiff(Surv(survtime, survstat) ~ lasso_pred, data = res.cat)
+logrank_lasso
+
+fit_lasso <- survfit(Surv(survtime, survstat) ~ lasso_pred, data = res.cat)
+ggsurvplot(fit_lasso, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+#normal lasso 1se
+data$lasso_1se_pred = lasso_preds_1se[,1]
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("lasso_1se_pred"))
+res.cat <- surv_categorize(res.cut)
+logrank_lasso_1se <- survdiff(Surv(survtime, survstat) ~ lasso_1se_pred, data = res.cat)
+logrank_lasso_1se
+
+fit_lasso_1se <- survfit(Surv(survtime, survstat) ~ lasso_1se_pred, data = res.cat)
+ggsurvplot(fit_lasso_1se, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+#inference lasso
+data$lasso_inf_pred = lasso_preds_inf[,1]
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("lasso_inf_pred"))
+res.cat <- surv_categorize(res.cut)
+logrank_lasso_inf <- survdiff(Surv(survtime, survstat) ~ lasso_inf_pred, data = res.cat)
+logrank_lasso_inf
+
+fit_lasso_inf <- survfit(Surv(survtime, survstat) ~ lasso_inf_pred, data = res.cat)
+ggsurvplot(fit_lasso_inf, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+#lar selectiveinference package
+data$lar_pred = lar_preds
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("lar_pred"))
+res.cat <- surv_categorize(res.cut)
+logrank_lar <- survdiff(Surv(survtime, survstat) ~ lar_pred, data = res.cat)
+logrank_lar
+
+fit_lar <- survfit(Surv(survtime, survstat) ~ lar_pred, data = res.cat)
+ggsurvplot(fit_lar, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+#lar lars package
+data$lars_lar_pred = lar_lars_preds
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("lars_lar_pred"))
+res.cat <- surv_categorize(res.cut)
+logrank_lars_lar <- survdiff(Surv(survtime, survstat) ~ lars_lar_pred, data = res.cat)
+logrank_lars_lar
+
+fit_lars_lar <- survfit(Surv(survtime, survstat) ~ lars_lar_pred, data = res.cat)
+ggsurvplot(fit_lars_lar, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+#L0
+data$L0_pred = L0_preds
+res.cut <- surv_cutpoint(data, time = "survtime", event = "survstat",
+   variables = c("L0_pred"))
+res.cat <- surv_categorize(res.cut)
+logrank_L0 <- survdiff(Surv(survtime, survstat) ~ L0_pred, data = res.cat)
+logrank_L0
+
+fit_L0 <- survfit(Surv(survtime, survstat) ~ L0_pred, data = res.cat)
+ggsurvplot(fit_L0, data = res.cat, risk.table = TRUE, conf.int = FALSE, pval = TRUE)
+
+```
+
+
+
