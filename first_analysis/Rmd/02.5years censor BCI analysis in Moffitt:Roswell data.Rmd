@@ -1,0 +1,368 @@
+---
+title: "5 years censor BCI analysis in Moffitt/Roswell data"
+author: "Christelle Colin-Leitzinger"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: paged
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+
+.figure {
+   margin-top: 25px;
+   margin-bottom: 100px;
+}
+
+table {
+    margin-top: 10px;
+    margin-bottom: 25px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.align='center'
+                      )
+```
+
+```{r library}
+library(tidyverse)
+library(ggplot2)
+# library(mclust)
+# library(data.table)
+library(labelled)
+library(gtsummary)
+library(survival)
+library(survminer)
+# library(lubridate)
+theme_gtsummary_compact()
+theme_set(theme_classic())
+```
+
+```{r load}
+adipose_data <- read_rds(paste0(here::here(), "/combined body comp data_2025-03-12.rds"))
+```
+
+# 1. Table S1. Patient characteristics and body composition depots by site
+```{r Table S1}
+adipose_data %>% 
+  select(age_at_diagnosis, 
+         tnm_cs_mixed_group_stage,
+         debulking_status, 
+         muscle_area_cm2, imat_area_cm2, vat_area_cm2, 
+         sat_area_cm2, total_fat_area,
+         BCI,
+         site) %>% 
+  tbl_summary(by = site,
+              digits = all_continuous() ~ 1
+  ) %>%  
+  bold_labels() %>% add_overall() %>% 
+  add_p() %>% bold_p() %>% 
+  # add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+# 2. Preparation of training/validation datasets
+Here I created a 75% training dataset and 25% validation set split so Moffitt and Roswell cases are represented in both data in the same proportion.
+```{r data split, echo = TRUE, class.source= 'fold-hide'}
+library(tidymodels)
+# Splitting the data
+set.seed(1234)
+# 3/4 of the data into the training set but split evenly within sites
+data_split <- initial_split(adipose_data, prop = .75, strata = site)
+# write_rds(data_split, paste0("data_split_", today(), ".rds"))
+data_split <- 
+  read_rds(paste0(here::here(), 
+                  "/data_split_2025-03-12.rds"))
+# Create training and training data sets:
+training_data <- training(data_split) %>% 
+  mutate(os_time_5year = case_when(
+    os_time_from_dx_Jan2025 <= 5 * 12           ~ os_time_from_dx_Jan2025,
+    os_time_from_dx_Jan2025 > 5 * 12            ~ 60,
+    TRUE                                        ~ NA_real_
+  )) %>% 
+  mutate(os_event_5year = case_when(
+    os_time_from_dx_Jan2025 <= 60               ~ os_event_Jan2025,
+    os_time_from_dx_Jan2025 > 60                ~ 0,
+    TRUE                                        ~ NA_real_
+  )) %>% 
+  mutate(recurrence_time_5year = case_when(
+    rec_time_from_dx_Jan2025 <= 5 * 12           ~ rec_time_from_dx_Jan2025,
+    rec_time_from_dx_Jan2025 > 5 * 12            ~ 60,
+    TRUE                                        ~ NA_real_
+  )) %>% 
+  mutate(recurrence_event_5year = case_when(
+    rec_time_from_dx_Jan2025 <= 60               ~ rec_event_Jan2025,
+    rec_time_from_dx_Jan2025 > 60                ~ 0,
+    TRUE                                        ~ NA_real_
+  ))
+  
+validation_data  <- testing(data_split) %>% 
+  mutate(os_time_5year = case_when(
+    os_time_from_dx_Jan2025 <= 5 * 12           ~ os_time_from_dx_Jan2025,
+    os_time_from_dx_Jan2025 > 5 * 12            ~ 60,
+    TRUE                                        ~ NA_real_
+  )) %>% 
+  mutate(os_event_5year = case_when(
+    os_time_from_dx_Jan2025 <= 60               ~ os_event_Jan2025,
+    os_time_from_dx_Jan2025 > 60                ~ 0,
+    TRUE                                        ~ NA_real_
+  )) %>% 
+  mutate(recurrence_time_5year = case_when(
+    rec_time_from_dx_Jan2025 <= 5 * 12           ~ rec_time_from_dx_Jan2025,
+    rec_time_from_dx_Jan2025 > 5 * 12            ~ 60,
+    TRUE                                        ~ NA_real_
+  )) %>% 
+  mutate(recurrence_event_5year = case_when(
+    rec_time_from_dx_Jan2025 <= 60               ~ rec_event_Jan2025,
+    rec_time_from_dx_Jan2025 > 60                ~ 0,
+    TRUE                                        ~ NA_real_
+  ))
+
+```
+
+# 3. Table 1. Patient characteristics and body composition depots by dataset
+```{r Table 1}
+training_data %>% 
+  mutate(dataset = "Training") %>% 
+  bind_rows(., 
+            validation_data %>% 
+              mutate(dataset = "Validation")) %>% 
+  select(age_at_diagnosis, 
+         tnm_cs_mixed_group_stage,
+         debulking_status, 
+         muscle_area_cm2, imat_area_cm2, vat_area_cm2, 
+         sat_area_cm2, total_fat_area,
+         BCI,
+         site, dataset) %>% 
+  tbl_summary(by = dataset,
+              digits = all_continuous() ~ 1
+  ) %>%  
+  bold_labels() %>% add_overall() %>% 
+  add_p() %>% bold_p() %>% 
+  # add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+# 4.Estimate a cut point based on the training dataset
+I have been using a cutpoint estimation method using the `maxstat` package directly while it seems Roswell used the `survminer` package. The later actually determine the optimal cutpoint using the maximally selected rank statistics from the `maxstat` R package.   
+I checked both ways just in case and the cutpoint estimate is the same.
+
+## Survminer package - cutpoint estimation on the training data
+```{r cut point surminer, echo = TRUE, class.source= 'fold-hide'}
+res.cut <- surv_cutpoint(training_data, time = "os_time_5year", event = "os_event_5year",
+   variables = c("BCI"))
+
+plot(res.cut, "BCI")
+```
+
+```{r make cat, echo = TRUE, class.source= 'fold-hide'}
+training_data_cat <- training_data %>% 
+  mutate(BCI_cat = case_when(
+    BCI <= res.cut[["cutpoint"]][["cutpoint"]]           ~ "Low",
+    BCI > res.cut[["cutpoint"]][["cutpoint"]]            ~ "High"
+  ), BCI_moffitt_cat = factor(BCI_moffitt_cat, 
+                              levels = c("High", "Low")))
+
+validation_data_cat <- validation_data %>% 
+  mutate(BCI_cat = case_when(
+    BCI <= res.cut[["cutpoint"]][["cutpoint"]]           ~ "Low",
+    BCI > res.cut[["cutpoint"]][["cutpoint"]]            ~ "High"
+  ), BCI_moffitt_cat = factor(BCI_moffitt_cat, 
+                              levels = c("High", "Low")))
+```
+
+# 5. Table 2. Patient characteristics and body composition depots by BCI categories
+```{r Table 2}
+training_data_cat %>% 
+  mutate(dataset = "Training") %>% 
+  bind_rows(., 
+            validation_data_cat %>% 
+              mutate(dataset = "Validation")) %>% 
+  select(age_at_diagnosis, 
+         tnm_cs_mixed_group_stage,
+         debulking_status, 
+         muscle_area_cm2, imat_area_cm2, vat_area_cm2, 
+         sat_area_cm2, total_fat_area,
+         BCI, BCI_cat,
+         site, dataset) %>% 
+  tbl_summary(by = BCI_cat,
+              digits = all_continuous() ~ 1
+  ) %>%  
+  bold_labels() %>% add_overall() %>% 
+  add_p() %>% bold_p() %>% 
+  # add_stat_label() %>% 
+  modify_footnote(update = everything() ~ NA)
+```
+
+
+# 5. KM by cutpoint analysis (training data)
+```{r KM, fig.height=6}
+myplot <- survfit(Surv(os_time_5year, event = os_event_5year) ~ BCI_cat, data = training_data_cat)
+ggsurvplot(myplot, data = training_data_cat,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1,
+
+           xlab = "Time (months)",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE,
+           risk.table = TRUE
+) #%++% guides(colour = guide_legend(ncol = 1))
+
+```
+
+
+```{r}
+myplot <- survfit(Surv(recurrence_time_5year, event = recurrence_event_5year) ~ BCI_cat, data = training_data_cat)
+ggsurvplot(myplot, data = training_data_cat,
+           title = "PFS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE,
+           risk.table = TRUE
+) #%++% guides(colour = guide_legend(ncol = 1))
+```
+
+# 6. HR (training data)
+## OS
+```{r HR OS}
+coxph(Surv(os_time_5year, event = os_event_5year) ~ 
+        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+      data = training_data_cat) %>%
+  tbl_regression(exponentiate = TRUE) %>% 
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% 
+  add_n(location = "level")
+```
+
+## PFS
+```{r}
+coxph(Surv(recurrence_time_5year, event = recurrence_event_5year) ~ 
+        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+      data = training_data_cat) %>%
+  tbl_regression(exponentiate = TRUE) %>% 
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% 
+  add_n(location = "level")
+```
+
+# 7. KM by cutpoint analysis (validation data)
+```{r KM validation, fig.height=6}
+myplot <- survfit(Surv(os_time_5year, event = os_event_5year) ~ BCI_cat, data = validation_data_cat)
+ggsurvplot(myplot, data = validation_data_cat,
+           title = "OS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1,
+
+           xlab = "Time (months)",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE,
+           risk.table = TRUE
+) #%++% guides(colour = guide_legend(ncol = 1))
+
+```
+
+```{r}
+myplot <- survfit(Surv(recurrence_time_5year, event = recurrence_event_5year) ~ BCI_cat, data = validation_data_cat)
+ggsurvplot(myplot, data = validation_data_cat,
+           title = "PFS Analysis",
+           font.main = c(20, "bold", "black"),
+           font.x = c(18, "bold", "black"),
+           font.y = c(18, "bold", "black"),
+           font.legend = c(16, "black"),
+           font.tickslab = c(16, "bold", "black"),
+           size = 1.5,
+
+           xlab = "Time in months",
+           legend = "top",
+           legend.title = "",
+           # legend.labs = c("Low", "High"),
+           pval = TRUE,
+           conf.int = FALSE,
+           # Censor
+           censor = TRUE,
+           risk.table = TRUE
+) %++% guides(colour = guide_legend(ncol = 1))
+```
+
+# 8. HR (validation data)
+## OS
+```{r HR OS validation}
+coxph(Surv(os_time_5year, event = os_event_5year) ~ 
+        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+      data = validation_data_cat) %>%
+  tbl_regression(exponentiate = TRUE) %>% 
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% 
+  add_n(location = "level")
+```
+
+## PFS
+```{r}
+coxph(Surv(recurrence_time_5year, event = recurrence_event_5year) ~ 
+        BCI_cat + age_at_diagnosis + tnm_cs_mixed_group_stage + debulking_status + site, 
+      data = validation_data_cat) %>%
+  tbl_regression(exponentiate = TRUE) %>% 
+  bold_p(t = .05) %>% 
+  add_nevent(location = "level") %>% 
+  add_n(location = "level")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
