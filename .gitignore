@@ -18,6 +18,7 @@
 *.csv
 *.rds
 *.pptx
+*.docx
 /data
 
 # Example code in progress

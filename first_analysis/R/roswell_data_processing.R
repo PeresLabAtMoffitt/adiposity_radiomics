@@ -4,8 +4,8 @@ library(tidyverse)
 
 #################################################################### I ### Load data ----
 roswell_data <-
-  readxl::read_xlsx(paste0(here::here(),
-                           "/De-Identified Limited Body Comp Common Data Set for Moffitt Collab 01252023.xlsx"))
+  readxl::read_xlsx(paste0(here::here(), "/data/raw_data",
+                           "/De-ID Data Set for Moffitt 04032024.xlsx"))
 
 
 #################################################################### II ### harmonizing data with moffitt's----
