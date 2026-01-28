@@ -1,0 +1,2172 @@
+---
+title: "Race and ethnicity and Body composition in ovarian cancer survival"
+author: "Christelle Colin-Leitzinger"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    theme: united
+    highlight: pygments
+    df_print: kable
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.align='center'
+                      )
+```
+
+```{r library, echo = FALSE}
+library(tidyverse)
+library(labelled)
+library(gtsummary)
+library(gt)
+library(ggcorrplot)
+library(ggridges)
+library(survminer)
+library(survival)
+theme_gtsummary_compact()
+theme_set(theme_classic())
+```
+
+<style>
+div.blue { background-color:#0099CC; border-radius: 5px; padding: 20px; font-size: 38px}
+</style>
+<div class = "blue">
+
+<span style="color: white;">Race and ethnicity analysis</span>
+
+</div>
+<br>
+
+```{r load}
+# The repository is saved here 
+# Peres_Research/Ovarian - Radiomics/CTbased adiposity/R christelle/adiposity_radiomics
+path <- fs::path("","Volumes","Peres_Research", "Ovarian - Radiomics")
+# combined_mr_data <- read_rds(paste0(here::here(), 
+#                                  "/data/processed_data/first_analysis",
+#                                  "/combined Moffitt-Roswell body comp data_2025-04-30.rds"))
+
+# Moffitt
+###_______________________ custom function _______________________###
+fct_name_repair <- function(colnms) {
+  tolower(gsub("[, ()=/]", "_", colnms))
+}
+###_______________________________________________________________###
+body_comp <-
+  readxl::read_xlsx(paste0(#path, "/CTbased adiposity/dataset", 
+                           here::here(), "/data/raw_data",
+                           "/CT data 09272021.xlsx"),
+                    .name_repair = fct_name_repair) %>% 
+  `colnames<-`(str_replace(colnames(.), "__", "_"))
+# clinical_data <-
+#   read_csv(paste0(path, "/CTbased adiposity",
+#                   "/dataset/ForDan_clinical_modif_06092022.csv"))
+updated_survival <- 
+  read_rds(paste0(#path, "/Grant applications/Miles for Moffitt/data/processed data",
+                  here::here(), "/data/raw_data",
+                  "/Ovarian_Normalized_Radiomics_Features_30Apr2025.rds")) %>% 
+  `colnames<-`(str_replace(colnames(.), "__", "_"))
+
+# Roswell
+roswell_data <-
+  readxl::read_xlsx(paste0(here::here(), "/data/raw_data",
+                           # path, "/Roswell CTs (May 2024)/Dataset",
+                           "/De-ID Data Set for Moffitt 04032024.xlsx"))
+
+# Sigma
+# sigma_data <- read_rds(paste0(path,
+#                               "/SIGMA/processed data",
+#                               "/Sigma_HGSC_patients_data_20260122.rds"))
+parent_dir_path <- dirname(here::here())
+sigma_data <- read_rds(paste0(parent_dir_path, "/radiomics_sigma",
+                                 "/data/processed_data",
+                                 "/Sigma_HGSC_patients_data_20260122.rds"))
+```
+
+```{r load dafs}
+dafs <- read_rds(paste0(here::here(), 
+                        "/data/raw_data",
+                        # path, "/QICore_DAFs_Analysis/QC Review",
+                        "/Ovarian_DAFS_selected_series_19Nov2025.rds")) %>% 
+  mutate(across(everything(), ~ str_replace_na(.))) #%>% 
+  # janitor::clean_names()
+
+dafs1 <- type.convert(dafs, as.is = TRUE)
+```
+
+```{r prepare roswell data}
+roswell_data1 <- roswell_data %>% 
+  `colnames<-`(str_to_lower(colnames(.)) %>% str_replace(., "ti_1$", "t_index") %>%  str_remove(., "^pre_")) %>% 
+  `colnames<-`(str_remove(colnames(.), "_1$")) %>% 
+  rename(roswell_id = studyid, 
+         age_at_diagnosis = agedx, 
+         tumor_site = site,
+         stage_clinical = cstage, stage_path = pstage,
+         tnm_cs_mixed_group_stage = combined_stage, 
+         roswell_grade = grade, roswell_grade_3 = grade_3,
+         roswell_lymph_node_status = nodes,
+         alcohol_use = alc, smoking_status = tob,
+         os_event = survstat,
+         ovca_specific_os_event = dsurvstat,
+         os_time_from_dx_months = survtime,
+         rec_event = recstat, rec_time_from_dx_months = rectime,
+                
+         roswell_immunotherapy_yes_no = immunotherapy_yes_no,
+         roswell_immunotherapy_description = immunotherapy_description,
+         
+         predx_hypertension = htn, 
+         predx_diabetes = diabetes,
+         predx_cardiac_conditions = cardiac, 
+         predx_hypercholesterolemia = hyperchol,
+         predx_hyperlipidemia = hyperlipid,
+         predx_chronic_kidney_disease = renal,
+         
+         height_cm = ht_first, height_m = ht_first_met,
+         histolog_cd = histology, histolog_desc = histologydescription,
+         hgs_vs_nonhgs = hgs_full_2,
+         is_sat_extended = subqout_pre, is_postsat_extended = subqout_post,
+         sat = subq,
+         imat = ima,
+         weight_kg = chemo_start_wgt, chemo_end_weight_kg = chemo_end_wgt,
+         debulking = debulk, ascites_volume = ascites_1_num,
+         ascites = ascites_1_yes_no
+  ) %>% 
+  select(-race_2) %>% 
+  mutate(race = case_when(
+    race == "Unknown"              ~ NA_character_,
+    TRUE                           ~ race
+  )) %>% 
+  mutate(race_all = str_to_sentence(race)) %>% 
+  # All patients are presumed Non-Hispanic
+  mutate(ethnicity = "Non-Hispanic") %>% 
+  mutate(tnm_cs_mixed_group_stage = case_when(
+    tnm_cs_mixed_group_stage == 9                       ~ NA_character_,
+    tnm_cs_mixed_group_stage == 1                       ~ "I",
+    tnm_cs_mixed_group_stage == 2                       ~ "II",
+    tnm_cs_mixed_group_stage == 3                       ~ "III",
+    tnm_cs_mixed_group_stage == 4                       ~ "IV",
+    TRUE                                                ~ as.character(tnm_cs_mixed_group_stage)
+  )) %>% 
+  mutate(treatment_type = case_when(
+    neo == 0                       ~ "Upfront surgery", 
+    neo == 1                       ~ "Upfront chemo"
+  )) %>% 
+  mutate(rec_event = case_when(
+    rec_event == 0                  ~ 0,
+    rec_event == 1                  ~ 1,
+    rec_event == 2                  ~ 0,
+    rec_event == 9                  ~ NA_real_,
+    TRUE                            ~ rec_event
+  )) %>% 
+  mutate(site = "Roswell", .before = 1) %>% 
+  mutate(sarcopenia = case_when(
+    sarcopenia == 1                                          ~ "Yes",
+    sarcopenia == 0                                          ~ "No"
+  )) %>% 
+  mutate(martin = case_when(
+    smi < 41                                                ~ "Sarcopenia",
+    TRUE                                                    ~ "No sarcopenia"
+  )) %>% 
+  mutate(ascites = case_when(
+    ascites == 0                    ~ "absence",
+    ascites == 1                    ~ "presence"
+  )) %>% 
+  mutate(debulking = case_when(
+    debulking == "SUB"              ~ "Suboptimal",
+    debulking == "UNKNOWN"          ~ NA_character_,
+    debulking == "OPTIMAL"          ~ "Optimal",
+    debulking == "COMPLETE"         ~ "Optimal",
+    TRUE                            ~ str_to_sentence(debulking)
+  )) %>% 
+  mutate(alcohol_use = case_when(
+    alcohol_use == "Unknown Usage"                          ~ NA_character_,
+    TRUE                                                    ~ alcohol_use
+  )) %>% 
+  mutate(smoking_status = case_when(
+    smoking_status == "Unknown Usage"                          ~ NA_character_,
+    TRUE                                                    ~ smoking_status
+  )) %>% 
+  mutate(predx_chronic_kidney_disease = str_to_sentence(predx_chronic_kidney_disease))
+```
+
+```{r prepare moffitt data}
+body_comp1 <- body_comp %>% 
+  purrr::keep(~!all(is.na(.))) %>%
+  mutate(mrn = as.character(mrn)) %>% 
+  `colnames<-`(str_remove(colnames(.), "_area_cm2")) %>% 
+  mutate(baseline_ct_scan_date = as.Date(baseline_ct_scan_date)) %>% 
+  rename(moffitt_id = id, height_cm = height_cms_, height_m = height_m_,
+         ascites_severity = ascites,
+         sma = muscle) %>% 
+  mutate(site = "Moffitt", .before = 1) %>% 
+  mutate(weight_kg = case_when(
+    weight_unit == "kg" |
+      weight_unit == "Kg"                  ~ weight,
+    weight_unit == "lbs"                   ~ weight / 2.205
+  )) %>% 
+  select(-c(weight, weight_unit)) %>% 
+  mutate(ascites_severity = case_when(
+    is.na(ascites_severity)                ~ "absence",
+    str_detect(ascites_severity, 
+               "tumor")                    ~ "absence",
+    str_detect(ascites_severity, 
+               "moderate")                 ~ "moderate",
+    str_detect(ascites_severity, 
+               "severe")                   ~ "severe",
+    str_detect(ascites_severity, 
+               "mild")                     ~ "mild"
+  )) %>% 
+  mutate(ascites = case_when(
+    str_detect(ascites_severity, 
+               "absence")                  ~ "absence",
+    str_detect(ascites_severity, 
+               "moderate|severe|mild")     ~ "presence"
+  ))
+
+updated_survival1 <- updated_survival %>% 
+  rename(debulking = debulking_status, 
+         diabetes = diabetes_mellitus, 
+         race_all = race_cancer_registry) %>% 
+  mutate(mrn = as.character(mrn)) %>% 
+  distinct(mrn, .keep_all = TRUE) %>% 
+  # Outcome
+  mutate(os_time_from_dx_months = round(interval(start = date_of_diagnosis, end = fwdate_most_recent)/
+                                   duration(n=1, units = "months"), 2)) %>%
+  mutate(pfs_enddate = case_when(
+    rec_event == 0 & 
+      os_event == 1                      ~ fwdate_most_recent, #only use date of death when death occurred but no recurrence
+    TRUE                                 ~ rec_event_date, # use recurrence date for everything else
+  )) %>% 
+  mutate(pfs_time_from_dx_months = round(interval(start = date_of_diagnosis, end = pfs_enddate)/
+                                   duration(n=1, units = "months"), 2)) %>%
+  # Date for merging
+  mutate(baseline_ct_scan_date = as.Date(baseline_ct_scan_date, format = "%m/%d/%Y")) %>% 
+  # clinical
+  mutate(tnm_cs_mixed_group_stage = case_when(
+    tnm_cs_mixed_group_stage == 1                       ~ "I",
+    tnm_cs_mixed_group_stage == 2                       ~ "II",
+    tnm_cs_mixed_group_stage == 3                       ~ "III",
+    tnm_cs_mixed_group_stage == 4                       ~ "IV",
+    TRUE                                                ~ as.character(tnm_cs_mixed_group_stage)
+  )) %>% 
+  mutate(debulking = case_when(
+    debulking == "incomplete records"                    ~ NA_character_,
+    str_detect(debulking, "^optimal \\(")                ~ "Optimal",
+    str_detect(debulking, "^suboptimal \\(")             ~ "Suboptimal",
+    str_detect(debulking, "^complete \\(")               ~ "Optimal"
+  )) %>% 
+  mutate(race_all = str_to_sentence(race_all)) %>% 
+  mutate(race = case_when(
+    race_all == "White"       ~ "White",
+    race_all == "Black"       ~ "Black",
+    race_all == "Unkno"       ~ NA_character_,
+    !is.na(race_all)          ~ "Other"
+  )) %>% 
+  mutate(ethnicity = case_when(
+    ethnicity_cancer_registry == "UNKNOWN"               ~ NA_character_,
+    ethnicity_cancer_registry == "NON-SPANISH"           ~ "Non-Hispanic",
+    !is.na(ethnicity_cancer_registry)                    ~ "Hispanic"
+  )) %>% 
+  # Remove unnecessary variables
+  select(-c(starts_with("nor_"), matches("^f[1-9]")))
+
+moffitt_data <- left_join(body_comp1, updated_survival1, 
+                          by=c("mrn", "date_of_diagnosis", "baseline_ct_scan_date")) %>% # keep patient with ct image
+  
+  purrr::keep(~!all(is.na(.))) %>%
+  # Eight patients were excluded due to coverage artifacts
+  filter(is.na(should_exclude)) %>% 
+  # Eight patients were excluded due to incomplete or missing CT images 
+  filter(!is.na(sma)) %>% 
+  mutate(mrn = as.character(mrn)) %>% 
+  
+  # Create variable
+  mutate(smi = sma / (height_m * height_m)) %>% 
+  mutate(sarcopenia = case_when(
+    smi <= 38.73                                            ~ "Yes",
+    TRUE                                                    ~ "No"
+  )) %>% 
+  mutate(martin = case_when(
+    smi < 41                                                ~ "Sarcopenia",
+    TRUE                                                    ~ "No sarcopenia"
+  )) %>% 
+  mutate(treatment_type = case_when(
+    treatment_type == "upfront neoadjuvant"                 ~ "Upfront chemo",
+    treatment_type == "upfront surgery"                     ~ "Upfront surgery",
+    TRUE                                                    ~ treatment_type
+  )) %>% 
+  mutate_at(c("hypertension",
+              "diabetes", "hypercholesterolemia",
+              "chronic_kidney_disease",
+              "cardiac_conditions_including_bu",
+              "comment_for_cardiac_comorbidity"), ~ str_to_lower(.)) %>% 
+  mutate(predx_hypertension = case_when(
+    hypertension == "no"                                        ~ "No",
+    str_detect(hypertension, "pre|both")                        ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_diabetes = case_when(
+    diabetes == "no"                                            ~ "No",
+    str_detect(diabetes, "pre|both")                            ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_hypercholesterolemia = case_when(
+    hypercholesterolemia == "no"                                ~ "No",
+    str_detect(hypercholesterolemia, "pre|both")                ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_chronic_kidney_disease = case_when(
+    chronic_kidney_disease == "no"                              ~ "No",
+    str_detect(chronic_kidney_disease, "pre|both")              ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_cardiac_conditions = case_when(
+    cardiac_conditions_including_bu == "no"                     ~ "No",
+    str_detect(cardiac_conditions_including_bu, "pre|both")     ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  ))
+```
+
+```{r prepare sigma data}
+sigma_data1 <- sigma_data %>% 
+  mutate(site = "Sigma", .before = 1) %>%
+  rename(#race_all = race,
+         debulking = debulking_status,
+         stage = stage_tnm_cs_mixed_group_desc,
+         diabetes = diabetes_mellitus,
+         cardiac_conditions_including_bu =
+           cardiac_conditions_including_but_not_limited_to_transient_ischemic_attack_tia_myocardial_infarction_mi_cardio_myopathy_and_stroke) %>% 
+  mutate(race = case_when(
+    race_other == "White"       ~ "White",
+    race_other == "Black"       ~ "Black",
+    !is.na(race_other)          ~ "Other"
+  )) %>% 
+  # mutate(debulking = case_when(
+  #   str_detect(debulking, "Suboptimal")           ~ "Suboptimal",
+  #   str_detect(debulking, "Optimal")              ~ "Optimal",
+  #   str_detect(debulking, "complete")             ~ "Optimal",
+  # )) %>% 
+  mutate(tnm_cs_mixed_group_stage = case_when(
+    str_detect(stage, "1")                        ~ "I",
+    str_detect(stage, "2")                        ~ "II",
+    str_detect(stage, "3")                        ~ "III",
+    str_detect(stage, "4")                        ~ "IV"
+  )) %>% 
+  # mutate(treatment_type = case_when(
+  #   treatment_type == "Neoadjuvant"              ~ "upfront chemo",
+  #   treatment_type == "Adjuvant"                 ~ "upfront surgery"
+  # )) %>% 
+  mutate_at(c("hypertension",
+              "diabetes", "hypercholesterolemia",
+              "chronic_kidney_disease",
+              "cardiac_conditions_including_bu",
+              "comment_for_cardiac_comorbidity"), ~ str_to_lower(.)) %>% 
+  mutate(predx_hypertension = case_when(
+    hypertension == "no"                                        ~ "No",
+    str_detect(hypertension, "pre|both")                        ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_diabetes = case_when(
+    diabetes == "no"                                            ~ "No",
+    str_detect(diabetes, "pre|both")                            ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_hypercholesterolemia = case_when(
+    hypercholesterolemia == "no"                                ~ "No",
+    str_detect(hypercholesterolemia, "pre|both")                ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_chronic_kidney_disease = case_when(
+    chronic_kidney_disease == "no"                              ~ "No",
+    str_detect(chronic_kidney_disease, "pre|both")              ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  )) %>%
+  mutate(predx_cardiac_conditions = case_when(
+    cardiac_conditions_including_bu == "no"                     ~ "No",
+    str_detect(cardiac_conditions_including_bu, "pre|both")     ~ "Yes",
+    TRUE                                                        ~ NA_character_
+  ))
+```
+
+```{r join}
+set.seed(1234)
+clinical_data <- bind_rows(roswell_data1,
+                       moffitt_data,
+                       sigma_data1) %>% 
+  mutate(study_name = paste0(site, "_")) %>%
+    mutate(row = row_number()) %>% 
+  group_by(row = factor(row, levels = sample(unique(row)))) %>%
+  mutate(random_id = cur_group_id()) %>%
+  ungroup() %>%
+  mutate(zero = 6 - nchar(random_id)) %>%
+  mutate(add_zero = stringi::stri_dup("0", zero)) %>%
+  select(c(study_name, add_zero, random_id, mrn, everything())) %>%
+  unite(deidentified_patient_id, study_name:random_id, sep = "", remove = TRUE) %>% 
+  mutate(ct_patient_id = coalesce(mrn, roswell_id)) %>% 
+  select(deidentified_patient_id, ct_patient_id,
+         everything(), 
+         -c(roswell_id, moffitt_id, mrn, zero), 
+         roswell_id, moffitt_id, mrn)
+
+clinical_data <- clinical_data %>% 
+  mutate(site = case_when(
+    site == "Moffitt" |
+      site == "Sigma"                        ~ "Moffitt + Sigma",
+    TRUE                                     ~ site
+  )) %>%
+  mutate(year_of_diagnosis = year(date_of_diagnosis)) %>% 
+  mutate(year_of_diagnosis_cat = case_when(
+    year_of_diagnosis <= 2013                ~ "2013 and earlier",
+    year_of_diagnosis > 2013 &
+      year_of_diagnosis <= 2019              ~ "2014-2019",
+    year_of_diagnosis > 2019                 ~ "2020 and later"
+  )) %>% 
+  mutate(year_of_diagnosis = as.character(year_of_diagnosis)) %>% 
+  mutate(race = factor(race, levels = c("White", "Black", "Other"))) %>%
+  mutate(raceeth = case_when(
+    ethnicity == "Non-Hispanic" &
+      race == "White"                        ~ "Non-Hispanic White",
+    ethnicity == "Non-Hispanic" &
+      race == "Black"                        ~ "Non-Hispanic Black",
+    ethnicity == "Hispanic"                  ~ "Hispanic, any race",
+    TRUE                                     ~ paste(race, ethnicity)
+  )) %>%
+  # mutate(raceeth = factor(raceeth, levels = c("White Non-Hispanic",
+  #                                             "Black Non-Hispanic",
+  #                                             "Hispanic any race"))) %>%
+  mutate(tnm_cs_mixed_group_stage = case_when(
+    tnm_cs_mixed_group_stage == "I" |
+      tnm_cs_mixed_group_stage == "II"       ~ "I-II",
+    TRUE                                     ~ tnm_cs_mixed_group_stage
+  ), tnm_cs_mixed_group_stage = factor(tnm_cs_mixed_group_stage, 
+                                       levels = c("I-II", "III", "IV"))) %>% 
+  mutate(bmi = weight_kg / (height_m * height_m)) %>% 
+  mutate(bmi_cat = case_when(
+    bmi < 25                    ~ "<25 kg/m²",
+    bmi >= 25 &
+      bmi < 30                  ~ "25-30 kg/m²",
+    bmi >= 30                   ~ "≥30 kg/m²"
+  )) %>%
+  mutate(bmi_cat = factor(bmi_cat, levels = c("<25 kg/m²", "25-30 kg/m²", "≥30 kg/m²")))
+```
+
+
+
+Details on data at
+Peres_Research/Ovarian - Radiomics/QICore_DAFs_Analysis/QC Review/QC Review Summary.docx   
+
+```{r dafs cleaning}
+dafs2 <- dafs1
+```
+
+```{r body comp existing var}
+body_comp_type <- colnames(dafs2 %>%
+  select("L3mid;SKM[-29,150];cross_sectional_area_pixels":
+         "L3mid-avg[3];ASCITES;HU_max"
+         )) %>% as_tibble() %>%
+  `colnames<-`(c("variable"))
+
+body_comp_type1 <- body_comp_type %>%
+  mutate(variable1= str_match(variable, "(.*);(.*);(.*)")[,1]) %>%
+  mutate(region = str_match(variable, "(.*);(.*);(.*)")[,2]) %>%
+  mutate(feature = str_match(variable, "(.*);(.*);(.*)")[,3]) %>%
+  mutate(unit = str_match(variable, "(.*);(.*);(.*)")[,4])
+
+selected_features <- body_comp_type1 %>%
+  filter(
+    (str_detect(feature, "NOARMS") & unit == "volume_cm3") | # For skm and imat
+    (str_detect(feature, "NOARMS") & unit == "cross_sectional_area_cm2") | # For skm and imat
+    (str_detect(feature, "SKM") & str_detect(feature, "NOARMS") & unit == "HU_mean") | # For skm
+    (str_detect(feature, c("ASCITES")) & unit == "volume_cm3") | # use cm3 for ascites
+    (str_detect(feature, c("ASCITES")) & unit == "cross_sectional_area_cm2") | # to compare
+    (feature %in% c("SAT[-190,-30]", "VAT[-150,-50]") & unit == "volume_cm3") |
+    (feature %in% c(#"ASCITES",
+                    "SAT[-190,-30]", "VAT[-150,-50]") & unit == "cross_sectional_area_cm2") #|
+    # (feature %in% c(#"ASCITES",
+    #                 "SAT", "VAT") & unit == "hu_mean")
+    )
+```
+
+Advise from Dan:   
+- For muscle HU (Hounsfield unit) use the mean variable which measure radiodensity. It is important in case of oedema, scaring. It is muscle radiomics, it reflect the muscle quality.   
+- For TAT and total tissue proportion calculation, use the area cm2 and volume cm3 variables.   
+- The best quantification of ascites would be to measure.  
+volume of ascites in cm3 between two axial levels such as T12 to L5 or
+T12 to sacrum depending on availability within the cohort.   
+This involves summing up all the cm3 ascites measurements for each included vertebral body level.   
+- Calculate tissue proportion (for variable A, we divide variable A by the addition of all the tissue combined muscle+VAT+SAT+IMAT). In Dan's paper, I found it written as he used the indexed values for the calculation but the results are the same for indexed or not so I used the raw values.   
+- Dan also talked about calculating a z-score for each features (1_SD)...
+
+Note:   
+The sarcopenia cutoff I used is 38.5.   
+1— “The cut-off of SMI introduced by Prado et al. in 2008 (sarcopenia was defined as SMI < 52.4 cm2/m2 for males and SMI < 38.5 cm2/m2 for females) was used in 20 studies covering 10 countries”.   
+
+I cleaned up the names so they are not as long and are more meaningful hereafter.
+Just keep in mind I used that ALLSKM_NOARMS, ALLIMAT_NOARMS and the with boundary features for SAT and VAT.
+
+<br>
+
+```{r join with clinical}
+data <- dafs2 %>%
+  select(ct_PatientID, selected_features$variable) %>%
+  janitor::clean_names() %>%
+  `colnames<-`(str_replace(colnames(.), "l3mid_avg_3_", "l3midavg_") %>%
+                 str_replace(., "cross_sectional_area_cm2", "area_cm2") %>%
+                 str_replace(., "ascites_10_10", "ascites_transudative") %>%
+                 str_replace(., "ascites_16_2048", "ascites_exudative") %>%
+                 str_replace(., "ascites_46_2048", "ascites_hemoperitoneum") %>%
+                 str_replace(., "ascites_volume", "ascites_full_volume") %>%
+                 str_replace(., "ascites_area", "ascites_full_area") %>%
+                 str_replace(., "allskm_29_150_", "skm_") %>%
+                 str_replace(., "allimat_190_30_", "imat_") %>%
+                 str_replace(., "vat_150_50_", "vat_") %>%
+                 str_replace(., "sat_190_30_", "sat_") %>%
+                 str_remove(., "_noarms")) %>%
+  # slice(1:424) %>%
+  inner_join(., clinical_data,
+             by = "ct_patient_id")
+```
+
+```{r add body comp analysis var}
+data <- data %>%
+  # Index
+  mutate(across(c(ends_with("area_cm2"),
+                  ends_with("volume_cm3"),
+                  -contains("ascites")), ~ . / (height_m ^2),
+                .names = "{.col}_index"), .after = 1) %>%
+  # SMI
+  rename(l3midavg_smi = l3midavg_skm_area_cm2_index,
+         l3mid_smi = l3mid_skm_area_cm2_index,
+         l3start_l3end_smi = l3start_l3end_skm_area_cm2_index) %>%
+
+  # Sarcopenia
+  mutate(l3midavg_sarcopenia = case_when(
+    l3midavg_smi >= 38.5                             ~ "≥38.5",
+    !is.na(l3midavg_smi)                             ~ "<38.5 : sarcopenia"
+  )) %>%
+  mutate(l3mid_sarcopenia = case_when(
+    l3mid_smi >= 38.5                                ~ "≥38.5",
+    !is.na(l3mid_smi)                                ~ "<38.5 : sarcopenia"
+  )) %>%
+  mutate(l3start_l3end_sarcopenia = case_when(
+    l3start_l3end_smi >= 38.5                        ~ "≥38.5",
+    !is.na(l3start_l3end_smi)                        ~ "<38.5 : sarcopenia"
+  )) %>%
+  # Myosteatosis - skeletal muscle fat infiltration
+  mutate(l3midavg_myosteatosis = case_when(
+    bmi < 25 &
+      l3midavg_skm_hu_mean < 41                      ~ "Myosteatosis",
+    bmi >= 25 &
+      l3midavg_skm_hu_mean < 33                      ~ "Myosteatosis",
+    !is.na(l3midavg_skm_hu_mean) &
+      !is.na(bmi)                                    ~ "No myosteatosis"
+  )) %>%
+  mutate(l3mid_myosteatosis = case_when(
+    bmi < 25 &
+      l3mid_skm_hu_mean < 41                         ~ "Myosteatosis",
+    bmi >= 25 &
+      l3mid_skm_hu_mean < 33                         ~ "Myosteatosis",
+    !is.na(l3mid_skm_hu_mean) &
+      !is.na(bmi)                                    ~ "No myosteatosis"
+  )) %>%
+  mutate(l3start_l3end_myosteatosis = case_when(
+    bmi < 25 &
+      l3start_l3end_skm_hu_mean < 41                 ~ "Myosteatosis",
+    bmi >= 25 &
+      l3start_l3end_skm_hu_mean < 33                 ~ "Myosteatosis",
+    !is.na(l3start_l3end_skm_hu_mean) &
+      !is.na(bmi)                                    ~ "No myosteatosis"
+  )) %>%
+  mutate(across(c(ends_with("_myosteatosis")),
+                ~ factor(., levels =
+                           c("No myosteatosis", "Myosteatosis")))) %>%
+  # V/S ratio
+  mutate(l3mid_v_s_ratio_cm2 = l3mid_vat_area_cm2 / l3mid_sat_area_cm2) %>%
+  mutate(l3midavg_v_s_ratio_cm2 = l3midavg_vat_area_cm2 / l3midavg_sat_area_cm2) %>%
+  mutate(l3start_l3end_v_s_ratio_cm2 = l3start_l3end_vat_area_cm2 / l3start_l3end_sat_area_cm2) %>%
+
+  mutate(l3mid_v_s_ratio_cm3 = l3mid_vat_volume_cm3 / l3mid_sat_volume_cm3) %>%
+  mutate(l3midavg_v_s_ratio_cm3 = l3midavg_vat_volume_cm3 / l3midavg_sat_volume_cm3) %>%
+  mutate(l3start_l3end_v_s_ratio_cm3 = l3start_l3end_vat_volume_cm3 / l3start_l3end_sat_volume_cm3) %>%
+  # TAT
+  mutate(l3mid_tat_cm2 = case_when(
+    is.na(l3mid_vat_area_cm2) |
+    is.na(l3mid_sat_area_cm2) |
+    is.na(l3mid_imat_area_cm2)                       ~ NA_real_,
+    TRUE                                             ~ l3mid_vat_area_cm2 + l3mid_sat_area_cm2 + l3mid_imat_area_cm2
+  )) %>%
+  mutate(l3midavg_tat_cm2 = case_when(
+    is.na(l3midavg_vat_area_cm2) |
+    is.na(l3midavg_sat_area_cm2) |
+    is.na(l3midavg_imat_area_cm2)                    ~ NA_real_,
+    TRUE                                             ~ l3midavg_vat_area_cm2 + l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2
+  )) %>%
+  mutate(l3start_l3end_tat_cm2 = case_when(
+    is.na(l3start_l3end_vat_area_cm2) |
+    is.na(l3start_l3end_sat_area_cm2) |
+    is.na(l3start_l3end_imat_area_cm2)               ~ NA_real_,
+    TRUE                                             ~ l3start_l3end_vat_area_cm2 + l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2
+  )) %>%
+  mutate(l3mid_tat_cm3 = case_when(
+    is.na(l3mid_vat_volume_cm3) |
+    is.na(l3mid_sat_volume_cm3) |
+    is.na(l3mid_imat_volume_cm3)                       ~ NA_real_,
+    TRUE                                             ~ l3mid_vat_volume_cm3 + l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3
+  )) %>%
+  mutate(l3midavg_tat_cm3 = case_when(
+    is.na(l3midavg_vat_volume_cm3) |
+    is.na(l3midavg_sat_volume_cm3) |
+    is.na(l3midavg_imat_volume_cm3)                    ~ NA_real_,
+    TRUE                                             ~ l3midavg_vat_volume_cm3 + l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3
+  )) %>%
+  mutate(l3start_l3end_tat_cm3 = case_when(
+    is.na(l3start_l3end_vat_volume_cm3) |
+    is.na(l3start_l3end_sat_volume_cm3) |
+    is.na(l3start_l3end_imat_volume_cm3)               ~ NA_real_,
+    TRUE                                             ~ l3start_l3end_vat_volume_cm3 + l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3
+  )) %>%
+  # Proportion - remove the values if one feature is NA
+  mutate(l3midavg_muscle_proportion_cm2 = l3midavg_skm_area_cm2 /
+           (l3midavg_skm_area_cm2 + l3midavg_vat_area_cm2 +
+              l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
+  mutate(l3midavg_vat_proportion_cm2 = l3midavg_vat_area_cm2 /
+           (l3midavg_skm_area_cm2 + l3midavg_vat_area_cm2 +
+              l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
+  mutate(l3midavg_sat_proportion_cm2 = l3midavg_sat_area_cm2 /
+           (l3midavg_skm_area_cm2 + l3midavg_vat_area_cm2 +
+              l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
+  mutate(l3midavg_imat_proportion_cm2 = l3midavg_imat_area_cm2 /
+           (l3midavg_skm_area_cm2 + l3midavg_vat_area_cm2 +
+              l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
+  mutate(l3midavg_muscle_proportion_cm3 = l3midavg_skm_volume_cm3 /
+           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  mutate(l3midavg_vat_proportion_cm3 = l3midavg_vat_volume_cm3 /
+           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  mutate(l3midavg_sat_proportion_cm3 = l3midavg_sat_volume_cm3 /
+           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  mutate(l3midavg_imat_proportion_cm3 = l3midavg_imat_volume_cm3 /
+           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  mutate(across(c(starts_with("(l3midavg_") & contains("_proportion")), ~ case_when(
+    is.na(l3midavg_skm_area_cm2) |
+    is.na(l3midavg_vat_area_cm2) |
+    is.na(l3midavg_sat_area_cm2) |
+    is.na(l3midavg_imat_area_cm2)                    ~ NA_real_,
+    TRUE                                             ~ .
+  ))) %>%
+
+  mutate(l3mid_muscle_proportion_cm2 = l3mid_skm_area_cm2 /
+           (l3mid_skm_area_cm2 + l3mid_vat_area_cm2 +
+              l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
+  mutate(l3mid_vat_proportion_cm2 = l3mid_vat_area_cm2 /
+           (l3mid_skm_area_cm2 + l3mid_vat_area_cm2 +
+              l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
+  mutate(l3mid_sat_proportion_cm2 = l3mid_sat_area_cm2 /
+           (l3mid_skm_area_cm2 + l3mid_vat_area_cm2 +
+              l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
+  mutate(l3mid_imat_proportion_cm2 = l3mid_imat_area_cm2 /
+           (l3mid_skm_area_cm2 + l3mid_vat_area_cm2 +
+              l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
+
+   mutate(l3mid_muscle_proportion_cm3 = l3mid_skm_volume_cm3 /
+           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  mutate(l3mid_vat_proportion_cm3 = l3mid_vat_volume_cm3 /
+           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  mutate(l3mid_sat_proportion_cm3 = l3mid_sat_volume_cm3 /
+           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  mutate(l3mid_imat_proportion_cm3 = l3mid_imat_volume_cm3 /
+           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  mutate(across(c(starts_with("(l3mid_") & contains("_proportion")), ~ case_when(
+    is.na(l3mid_skm_area_cm2) |
+    is.na(l3mid_vat_area_cm2) |
+    is.na(l3mid_sat_area_cm2) |
+    is.na(l3mid_imat_area_cm2)                       ~ NA_real_,
+    TRUE                                             ~ .
+  ))) %>%
+
+  mutate(l3start_l3end_muscle_proportion_cm2 = l3start_l3end_skm_area_cm2 /
+           (l3start_l3end_skm_area_cm2 + l3start_l3end_vat_area_cm2 +
+              l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
+  mutate(l3start_l3end_vat_proportion_cm2 = l3start_l3end_vat_area_cm2 /
+           (l3start_l3end_skm_area_cm2 + l3start_l3end_vat_area_cm2 +
+              l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
+  mutate(l3start_l3end_sat_proportion_cm2 = l3start_l3end_sat_area_cm2 /
+           (l3start_l3end_skm_area_cm2 + l3start_l3end_vat_area_cm2 +
+              l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
+  mutate(l3start_l3end_imat_proportion_cm2 = l3start_l3end_imat_area_cm2 /
+           (l3start_l3end_skm_area_cm2 + l3start_l3end_vat_area_cm2 +
+              l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
+
+   mutate(l3start_l3end_muscle_proportion_cm3 = l3start_l3end_skm_volume_cm3 /
+           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  mutate(l3start_l3end_vat_proportion_cm3 = l3start_l3end_vat_volume_cm3 /
+           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  mutate(l3start_l3end_sat_proportion_cm3 = l3start_l3end_sat_volume_cm3 /
+           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  mutate(l3start_l3end_imat_proportion_cm3 = l3start_l3end_imat_volume_cm3 /
+           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  mutate(across(c(starts_with("(l3start_l3end_") & contains("_proportion")), ~ case_when(
+    is.na(l3start_l3end_skm_area_cm2) |
+    is.na(l3start_l3end_vat_area_cm2) |
+    is.na(l3start_l3end_sat_area_cm2) |
+    is.na(l3start_l3end_imat_area_cm2)               ~ NA_real_,
+    TRUE                                             ~ .
+  ))) %>% 
+  mutate(across(c(ends_with("skm_area_cm2"), ends_with("skm_volume_cm3"),
+                  ends_with("vat_area_cm2"), ends_with("vat_volume_cm3"), 
+                  ends_with("sat_area_cm2"), ends_with("sat_volume_cm3"),
+                  ends_with("imat_area_cm2"), ends_with("imat_volume_cm3"),
+                  ends_with("skm_hu_mean"),
+                  contains("_smi"), 
+                  contains("_index"),
+                  contains("_proportion")
+                  ), ~ . / sd(., na.rm = TRUE) , .names = "{.col}_sdhr"))
+```
+
+```{r make categorical var}
+data <- data %>%
+  # Make categorical var
+  mutate(across(c(starts_with("l3") & ends_with("_smi"),
+                  starts_with("l3") & ends_with("_index"),
+                  starts_with("l3") & contains("_skm"),
+                  starts_with("l3") & contains("_imat"),
+                  starts_with("l3") & contains("_sat"),
+                  starts_with("l3") & contains("_vat"),
+                  starts_with("l3") & contains("_proportion"),
+                  starts_with("l3") & contains("_v_s_ratio"),
+                  starts_with("l3") & contains("_tat"), 
+                  -ends_with("_sdhr")
+                  ), ~ case_when(
+    ntile(., 3) == 1 ~ "Low",
+    ntile(., 3) == 2 ~ "Medium",
+    ntile(., 3) == 3 ~ "High"),
+    .names = "{.col}_tertcat")) %>%
+  mutate(across(c(ends_with("_tertcat")),
+                ~ factor(., levels =
+                           c("Low", "Medium", "High"))))
+```
+
+```{r Labeling data}
+var_label(data) <- list(age_at_diagnosis = "Patient age",
+                        year_of_diagnosis = "Diagnosis (year)",
+                        sex = "Sex",
+                        race_all	 = "Race (raw)",
+                        race = "Race", ethnicity = "Ethnicity",
+                        raceeth = "Race and Ethnicity",
+                        debulking = "Debulking status",
+                        bmi = "BMI (continuous)",
+                        bmi_cat = "BMI (categorical)",
+                        weight_kg = "Weight (kg)",
+                        height_m = "Height (m)",
+                        os_event = "Deaths",
+
+                        # sarcopenia = "Sarcopenia",
+                        # myosteatosis = "Myosteatosis",
+                        site = "Site"
+)
+```
+
+
+# I. Patient characteristics
+Notes:    
+All Roswell patients are presumed Non-Hispanic
+
+We have some patients with missing race or ethnicity. I filled up the blank as best as I think following this:   
+raceeth == "Other Non-Hispanic"             ~ "Non-Hispanic, Other race",   
+raceeth == "NA Non-Hispanic"                ~ "Non-Hispanic, Other race",   
+raceeth == "White NA"                       ~ "Non-Hispanic White"   
+
+This analysis focus on Non-Hispanic White, Non-Hispanic Black, and Hispanic, any race.
+
+For missing BMI, all Sigma patient are 99 or 999 for height, weight in cancer registry and not abstracted in cerner bmi file.   
+For Moffitt patients, all weight are missing because recorded after tx date.   
+```{r code raceeth}
+data %>%
+  select(site,
+         raceeth, race, race_all, ethnicity) %>% 
+  filter(!str_detect(raceeth, "Hispanic, any race|Non-Hispanic Black|Non-Hispanic White"))
+# a <- data %>%
+#   select(site,
+#          raceeth, contains("race"), contains("ethnicity")) %>% 
+#   filter(!str_detect(raceeth, "Hispanic, any race|Non-Hispanic Black|Non-Hispanic White"))
+# b <- data %>%
+#   select(site,
+#          bmi, contains("bmi"), ct_patient_id, contains("height"), contains("weight")) %>% 
+#   filter(is.na(bmi))
+
+data <- data %>%
+  mutate(raceeth = case_when(
+    raceeth == "Hispanic, any race"             ~ "Hispanic, any race",
+    raceeth == "Non-Hispanic Black"             ~ "Non-Hispanic Black",
+    raceeth == "Non-Hispanic White"             ~ "Non-Hispanic White",
+    raceeth == "Other Non-Hispanic"             ~ "Non-Hispanic, Other race",
+    raceeth == "NA Non-Hispanic"                ~ "Non-Hispanic, Other race",
+    raceeth == "White NA"                       ~ "Non-Hispanic White"
+  ), raceeth = factor(raceeth, levels = c("Non-Hispanic White",
+                                          "Non-Hispanic Black",
+                                          "Hispanic, any race"))) %>% 
+  filter(!is.na(raceeth))
+```
+
+## By Race and Ethnicity
+```{r char by raceeth}
+data %>%
+  select(age_at_diagnosis,
+         year_of_diagnosis, year_of_diagnosis_cat,
+         raceeth, #race, race_all, ethnicity, 
+         tnm_cs_mixed_group_stage,
+         debulking,
+         height_m, weight_kg,
+         bmi, bmi_cat,
+         rec_event, pfs_event, os_event,
+         os_time_from_dx_months,
+         starts_with("predx_")
+         ) %>%
+  # mutate(raceeth = fct_na_value_to_level(raceeth, level = "Missing")) %>%
+  tbl_summary(by = raceeth,
+              type = list(c(rec_event, pfs_event, os_event,
+                            starts_with("predx_")) ~ "categorical")) %>%
+  bold_labels() %>%
+  add_p(include = -c(year_of_diagnosis, year_of_diagnosis_cat)) %>% 
+  bold_p() %>% add_overall() %>%
+  modify_header(label        ~ "**Patient characteristics**",
+                all_stat_cols()        ~ "**{level}**, N = {n}")
+```
+<br>
+
+# II. Body composition
+
+
+## Bodycomp by Race and Ethnicity
+### a. Continuous
+I added color to differentiate better the features. Most study I saw used indexed features...
+More explanation on the Ascites features are added within the Ascites section.
+
+1- SAT cm2 is lower in White followed by Hispanic and Black, and    
+V/S is lower in Black followed by White and Hispanic (Highest VAT over mid SAT).   
+2- low SMI (higher proportion of sarcopenic patients) in White.   
+3- SAT differences are amplified when indexed by height
+4- When looking a proportion, we see    
+the same for SAT (lower in White followed by Hispanic and Black)   
+lower VAT for Black followed by White and Hispanic    
+a trend toward lower IMAT Hispanic followed by Black and White   
+
+```{r cont body comp table by raceeth}
+tbl_midavg <- data %>%
+  select(l3midavg_skm_area_cm2, l3midavg_sat_area_cm2, l3midavg_vat_area_cm2, l3midavg_imat_area_cm2,
+         l3midavg_skm_volume_cm3, l3midavg_sat_volume_cm3, l3midavg_vat_volume_cm3, l3midavg_imat_volume_cm3,
+         l3midavg_skm_hu_mean, l3midavg_myosteatosis,
+         l3midavg_v_s_ratio_cm2, l3midavg_v_s_ratio_cm3,
+         l3midavg_tat_cm2, l3midavg_tat_cm3,
+         raceeth) %>% 
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "v_s", "V/S") %>%
+                 str_replace(., "tat", "TAT") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_replace(., "hu_mean", "HU") %>%
+                 str_replace(., "myosteatosis", "Myosteatosis") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+
+tbl_mid <- data %>%
+  select(l3mid_skm_area_cm2, l3mid_sat_area_cm2, l3mid_vat_area_cm2, l3mid_imat_area_cm2,
+         l3mid_skm_volume_cm3, l3mid_sat_volume_cm3, l3mid_vat_volume_cm3, l3mid_imat_volume_cm3,
+         l3mid_skm_hu_mean, l3mid_myosteatosis,
+         l3mid_v_s_ratio_cm2, l3mid_v_s_ratio_cm3,
+         l3mid_tat_cm2, l3mid_tat_cm3,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "v_s", "V/S") %>%
+                 str_replace(., "tat", "TAT") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_replace(., "hu_mean", "HU") %>%
+                 str_replace(., "myosteatosis", "Myosteatosis") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_l3startend <- data %>%
+  select(l3start_l3end_skm_area_cm2, l3start_l3end_sat_area_cm2, l3start_l3end_vat_area_cm2, l3start_l3end_imat_area_cm2,
+         l3start_l3end_skm_volume_cm3, l3start_l3end_sat_volume_cm3, l3start_l3end_vat_volume_cm3, l3start_l3end_imat_volume_cm3,
+         l3start_l3end_skm_hu_mean, l3start_l3end_myosteatosis,
+         l3start_l3end_v_s_ratio_cm2, l3start_l3end_v_s_ratio_cm3,
+         l3start_l3end_tat_cm2, l3start_l3end_tat_cm3,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "v_s", "V/S") %>%
+                 str_replace(., "tat", "TAT") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_replace(., "hu_mean", "HU") %>%
+                 str_replace(., "myosteatosis", "Myosteatosis") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_raw <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
+                 tab_spanner = c("**L3 midavg**", "**L3 mid**", "**L3 l3startend**"))
+```
+
+```{r index cont body comp table by raceeth}
+tbl_midavg <- data %>%
+  select(l3midavg_smi, l3midavg_sarcopenia, l3midavg_sat_area_cm2_index, l3midavg_vat_area_cm2_index, l3midavg_imat_area_cm2_index,
+         l3midavg_skm_volume_cm3_index, l3midavg_sat_volume_cm3_index, l3midavg_vat_volume_cm3_index, l3midavg_imat_volume_cm3_index,
+         raceeth) %>% 
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sarcopenia", "Sarcopenia") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+
+tbl_mid <- data %>%
+  select(l3mid_smi, l3mid_sarcopenia, l3mid_sat_area_cm2_index, l3mid_vat_area_cm2_index, l3mid_imat_area_cm2_index,
+         l3mid_skm_volume_cm3_index, l3mid_sat_volume_cm3_index, l3mid_vat_volume_cm3_index, l3mid_imat_volume_cm3_index,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sarcopenia", "Sarcopenia") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                  str_remove(., "area_|volume_") %>% 
+                str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_l3startend <- data %>%
+  select(l3start_l3end_smi, l3start_l3end_sarcopenia, l3start_l3end_sat_area_cm2_index, l3start_l3end_vat_area_cm2_index, l3start_l3end_imat_area_cm2_index,
+         l3start_l3end_skm_volume_cm3_index, l3start_l3end_sat_volume_cm3_index, l3start_l3end_vat_volume_cm3_index, l3start_l3end_imat_volume_cm3_index,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sarcopenia", "Sarcopenia") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                  str_remove(., "area_|volume_") %>% 
+                str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_index <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
+                 tab_spanner = c("**L3 midavg**", "**L3 mid**", "**L3 l3startend**"))
+```
+
+```{r proportion cont body comp table by raceeth}
+tbl_midavg <- data %>%
+  select(l3midavg_muscle_proportion_cm2, l3midavg_sat_proportion_cm2, l3midavg_vat_proportion_cm2, l3midavg_imat_proportion_cm2,
+         l3midavg_muscle_proportion_cm3, l3midavg_sat_proportion_cm3, l3midavg_vat_proportion_cm3, l3midavg_imat_proportion_cm3,
+         raceeth) %>% 
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "muscle_", "Skeleton muscle_") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+
+tbl_mid <- data %>%
+  select(l3mid_muscle_proportion_cm2, l3mid_sat_proportion_cm2, l3mid_vat_proportion_cm2, l3mid_imat_proportion_cm2,
+         l3mid_muscle_proportion_cm3, l3mid_sat_proportion_cm3, l3mid_vat_proportion_cm3, l3mid_imat_proportion_cm3,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "muscle_", "Skeleton muscle_") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_l3startend <- data %>%
+  select(l3start_l3end_muscle_proportion_cm2, l3start_l3end_sat_proportion_cm2, l3start_l3end_vat_proportion_cm2, l3start_l3end_imat_proportion_cm2,
+         l3start_l3end_muscle_proportion_cm3, l3start_l3end_sat_proportion_cm3, l3start_l3end_vat_proportion_cm3, l3start_l3end_imat_proportion_cm3,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "muscle_", "Skeleton muscle_") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_prop <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
+                 tab_spanner = c("**L3 midavg**", "**L3 mid**", "**L3 l3startend**"))
+```
+
+```{r ascites cont body comp table by raceeth}
+tbl_midavg <- data %>%
+  select(l3midavg_ascites_full_area_cm2, l3midavg_ascites_exudative_area_cm2, l3midavg_ascites_transudative_area_cm2, 
+         l3midavg_ascites_hemoperitoneum_area_cm2, 
+         l3midavg_ascites_full_volume_cm3, l3midavg_ascites_exudative_volume_cm3, l3midavg_ascites_transudative_volume_cm3, 
+         l3midavg_ascites_hemoperitoneum_volume_cm3,
+         raceeth) %>% 
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "ascites", "Ascites") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+
+tbl_mid <- data %>%
+  select(l3mid_ascites_full_area_cm2, l3mid_ascites_exudative_area_cm2, l3mid_ascites_transudative_area_cm2, 
+         l3mid_ascites_hemoperitoneum_area_cm2, 
+         l3mid_ascites_full_volume_cm3, l3mid_ascites_exudative_volume_cm3, l3mid_ascites_transudative_volume_cm3, 
+         l3mid_ascites_hemoperitoneum_volume_cm3,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "ascites", "Ascites") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_l3startend <- data %>%
+  select(l3start_l3end_ascites_full_area_cm2, l3start_l3end_ascites_exudative_area_cm2, l3start_l3end_ascites_transudative_area_cm2, 
+         l3start_l3end_ascites_hemoperitoneum_area_cm2, 
+         l3start_l3end_ascites_full_volume_cm3, l3start_l3end_ascites_exudative_volume_cm3, l3start_l3end_ascites_transudative_volume_cm3, 
+         l3start_l3end_ascites_hemoperitoneum_volume_cm3,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "ascites", "Ascites") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_ascites <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
+                 tab_spanner = c("**L3 midavg**", "**L3 mid**", "**L3 l3startend**"))
+```
+
+```{r gt cont body comp table by raceeth}
+gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop, tbl_ascites), 
+                    group_header = c("Raw features", "Indexed features", "Tissue proportion", "Ascites")) %>%
+  as_gt(#rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+# gt_tbl
+
+gt_tbl %>%
+  data_color(
+    columns = everything(),
+    rows = 1:8,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 17:24,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 27:28,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 31:42,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 51:58,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 67:74,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  )
+```
+
+#### Plot for L3 midavg
+```{r plot body comp by raceeth, fig.height=9}
+data %>%
+  select(ct_patient_id,
+         l3midavg_skm_area_cm2, l3midavg_sat_area_cm2, l3midavg_vat_area_cm2, l3midavg_imat_area_cm2,
+         l3midavg_skm_volume_cm3, l3midavg_sat_volume_cm3, l3midavg_vat_volume_cm3, l3midavg_imat_volume_cm3,
+         l3midavg_skm_hu_mean,
+         l3midavg_v_s_ratio_cm2, l3midavg_v_s_ratio_cm3,
+         l3midavg_tat_cm2, l3midavg_tat_cm3,
+         raceeth) %>%
+  filter(!is.na(raceeth)) %>%
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "v_s", "V/S") %>%
+                 str_replace(., "tat", "TAT") %>%
+                 # str_replace(., "volume_cm3_index", "index") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_replace(., "hu_mean", "HU") %>%
+                 str_replace_all(., "_", " ")) %>%
+  pivot_longer(cols = -c(`ct patient id`, raceeth),
+               names_to = "Feature", values_to = "value") %>%
+  mutate(Feature = factor(Feature,
+                          levels = c("Skeleton muscle HU", "Skeleton muscle area cm2", "Skeleton muscle volume cm3",
+                                     "SAT area cm2", "VAT area cm2", "V/S ratio cm2", 
+                                     "SAT volume cm3", "VAT volume cm3", "V/S ratio cm3",
+                                     "IMAT area cm2", "IMAT volume cm3",
+                                     "TAT cm2", "TAT cm3"))) %>%
+  ggplot(aes(x = raceeth, y = value, color = raceeth))+
+  geom_boxplot()+
+  # geom_jitter(color = "grey")+
+  scale_color_viridis_d(option = "G", end = c(0.6)
+                        )+
+  facet_wrap(. ~ Feature, ncol = 3, scales = "free")+
+  coord_flip()+
+  theme(axis.text.y = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "bottom")
+```
+
+### b. Categorical
+```{r cat body comp table by raceeth}
+tbl_midavg <- data %>%
+  select(l3midavg_skm_area_cm2_tertcat, l3midavg_sat_area_cm2_tertcat, l3midavg_vat_area_cm2_tertcat, l3midavg_imat_area_cm2_tertcat, 
+         l3midavg_skm_volume_cm3_tertcat, l3midavg_sat_volume_cm3_tertcat, l3midavg_vat_volume_cm3_tertcat, l3midavg_imat_volume_cm3_tertcat,
+         l3midavg_skm_hu_mean_tertcat,
+         l3midavg_v_s_ratio_cm2_tertcat, l3midavg_v_s_ratio_cm3_tertcat,
+         l3midavg_tat_cm2_tertcat, l3midavg_tat_cm3_tertcat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "v_s", "V/S") %>%
+                 str_replace(., "tat", "TAT") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_replace(., "volume_cm3", "cm3") %>%
+                 str_replace(., "area_cm2", "cm2") %>%
+                 str_replace(., "hu_mean", "HU") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+
+tbl_mid <- data %>%
+  select(l3mid_skm_area_cm2_tertcat, l3mid_sat_area_cm2_tertcat, l3mid_vat_area_cm2_tertcat, l3mid_imat_area_cm2_tertcat, 
+         l3mid_skm_volume_cm3_tertcat, l3mid_sat_volume_cm3_tertcat, l3mid_vat_volume_cm3_tertcat, l3mid_imat_volume_cm3_tertcat,
+         l3mid_skm_hu_mean_tertcat,
+         l3mid_v_s_ratio_cm2_tertcat, l3mid_v_s_ratio_cm3_tertcat,
+         l3mid_tat_cm2_tertcat, l3mid_tat_cm3_tertcat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "v_s", "V/S") %>%
+                 str_replace(., "tat", "TAT") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_replace(., "volume_cm3", "cm3") %>%
+                 str_replace(., "area_cm2", "cm2") %>%
+                 str_replace(., "hu_mean", "HU") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_l3startend <- data %>%
+  select(l3start_l3end_skm_area_cm2_tertcat, l3start_l3end_sat_area_cm2_tertcat, l3start_l3end_vat_area_cm2_tertcat, l3start_l3end_imat_area_cm2_tertcat, 
+         l3start_l3end_skm_volume_cm3_tertcat, l3start_l3end_sat_volume_cm3_tertcat, l3start_l3end_vat_volume_cm3_tertcat, l3start_l3end_imat_volume_cm3_tertcat,
+         l3start_l3end_skm_hu_mean_tertcat,
+         l3start_l3end_v_s_ratio_cm2_tertcat, l3start_l3end_v_s_ratio_cm3_tertcat,
+         l3start_l3end_tat_cm2_tertcat, l3start_l3end_tat_cm3_tertcat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "v_s", "V/S") %>%
+                 str_replace(., "tat", "TAT") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_replace(., "volume_cm3", "cm3") %>%
+                 str_replace(., "area_cm2", "cm2") %>%
+                 str_replace(., "hu_mean", "HU") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_raw <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
+                 tab_spanner = c("**L3 midavg**", "**L3 mid**", "**L3 l3startend**"))
+```
+
+```{r index cat body comp table by raceeth}
+tbl_midavg <- data %>%
+  select(l3midavg_smi_tertcat, l3midavg_sat_area_cm2_index_tertcat, l3midavg_vat_area_cm2_index_tertcat, l3midavg_imat_area_cm2_index_tertcat,
+         l3midavg_skm_volume_cm3_index_tertcat, l3midavg_sat_volume_cm3_index_tertcat, l3midavg_vat_volume_cm3_index_tertcat, l3midavg_imat_volume_cm3_index_tertcat,
+         raceeth) %>% 
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+
+tbl_mid <- data %>%
+  select(l3mid_smi_tertcat, l3mid_sat_area_cm2_index_tertcat, l3mid_vat_area_cm2_index_tertcat, l3mid_imat_area_cm2_index_tertcat,
+         l3mid_skm_volume_cm3_index_tertcat, l3mid_sat_volume_cm3_index_tertcat, l3mid_vat_volume_cm3_index_tertcat, l3mid_imat_volume_cm3_index_tertcat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                 str_remove(., "area_|volume_") %>% 
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_l3startend <- data %>%
+  select(l3start_l3end_smi_tertcat, l3start_l3end_sat_area_cm2_index_tertcat, l3start_l3end_vat_area_cm2_index_tertcat, l3start_l3end_imat_area_cm2_index_tertcat,
+         l3start_l3end_skm_volume_cm3_index_tertcat, l3start_l3end_sat_volume_cm3_index_tertcat, l3start_l3end_vat_volume_cm3_index_tertcat, l3start_l3end_imat_volume_cm3_index_tertcat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "smi", "SMI") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "skm", "Skeleton muscle") %>%
+                  str_remove(., "area_|volume_") %>% 
+                str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_index <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
+                 tab_spanner = c("**L3 midavg**", "**L3 mid**", "**L3 l3startend**"))
+```
+
+```{r proportion cat body comp table by raceeth}
+tbl_midavg <- data %>%
+  select(l3midavg_muscle_proportion_cm2_tertcat, l3midavg_sat_proportion_cm2_tertcat, l3midavg_vat_proportion_cm2_tertcat, l3midavg_imat_proportion_cm2_tertcat,
+         l3midavg_muscle_proportion_cm3_tertcat, l3midavg_sat_proportion_cm3_tertcat, l3midavg_vat_proportion_cm3_tertcat, l3midavg_imat_proportion_cm3_tertcat,
+         raceeth) %>% 
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "muscle_", "Skeleton muscle_") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**DAFS**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+
+tbl_mid <- data %>%
+  select(l3mid_muscle_proportion_cm2_tertcat, l3mid_sat_proportion_cm2_tertcat, l3mid_vat_proportion_cm2_tertcat, l3mid_imat_proportion_cm2_tertcat,
+         l3mid_muscle_proportion_cm3_tertcat, l3mid_sat_proportion_cm3_tertcat, l3mid_vat_proportion_cm3_tertcat, l3mid_imat_proportion_cm3_tertcat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "muscle_", "Skeleton muscle_") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_l3startend <- data %>%
+  select(l3start_l3end_muscle_proportion_cm2_tertcat, l3start_l3end_sat_proportion_cm2_tertcat, l3start_l3end_vat_proportion_cm2_tertcat, l3start_l3end_imat_proportion_cm2_tertcat,
+         l3start_l3end_muscle_proportion_cm3_tertcat, l3start_l3end_sat_proportion_cm3_tertcat, l3start_l3end_vat_proportion_cm3_tertcat, l3start_l3end_imat_proportion_cm3_tertcat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "tertcat", "(cat)") %>%
+                 str_replace(., "sat", "SAT") %>%
+                 str_replace(., "vat", "VAT") %>%
+                 str_replace(., "imat", "IMAT") %>%
+                 str_replace(., "muscle_", "Skeleton muscle_") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall()
+
+tbl_prop <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
+                 tab_spanner = c("**L3 midavg**", "**L3 mid**", "**L3 l3startend**"))
+```
+
+```{r gt cat body comp table by raceeth}
+gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop), 
+                    group_header = c("Raw features", "Indexed features", "Tissue proportion")) %>%
+  as_gt(#rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+# gt_tbl
+gt_tbl %>%
+  data_color(
+    columns = everything(),
+    rows = 1:20,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 41:50,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 56:60,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 66:85,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    columns = everything(),
+    rows = 106:125,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  )
+```
+<br>
+
+
+
+
+
+
+
+# IV. Ascites
+
+## 2. Set an ascites cutpoint
+### Using a median/SD cutpoint
+```{r}
+# set.seed(123)
+# d1 <- data.frame(binom=rbinom(1000, 20, 0.2), binomial.p='0.2')
+# d2 <- data.frame(binom=rbinom(1000, 20, 0.5),binomial.p='0.5')
+# write_rds(d1, "d1.rds")
+# write_rds(d2, "d2.rds")
+
+sev_ascites <- data %>%
+  filter(!is.na(ascites_severity))
+absence_ascites <- sev_ascites %>%
+  filter(ascites == "absence") %>%
+  select(l3midavg_ascites_exudative_area_cm2) %>%
+  mutate(dat = "Absence")
+# presence_ascites <- sev_ascites %>%
+#   filter(ascites == "presence") %>%
+#   select(l3midavg_ascites_exudative_area_cm2) %>%
+#   mutate(dat = "Presence")
+presence_ascites <- sev_ascites %>%
+  filter(ascites_severity == "mild" | ascites_severity == "moderate") %>%
+  select(l3midavg_ascites_exudative_area_cm2) %>%
+  mutate(dat = "Presence")
+
+median_absence <- median(absence_ascites$l3midavg_ascites_exudative_area_cm2)
+sd_absence <- sd(absence_ascites$l3midavg_ascites_exudative_area_cm2)
+median_presence <- median(presence_ascites$l3midavg_ascites_exudative_area_cm2)
+sd_presence <- sd(presence_ascites$l3midavg_ascites_exudative_area_cm2)
+median_cutoff_value <- ((median_presence-median_absence) / (sd_absence+sd_presence)) * sd_absence + median_absence
+```
+Using this method the cutoff value is `r median_cutoff_value`. 
+
+### Using cutpointr
+```{r}
+a <- absence_ascites %>%
+  bind_rows(., presence_ascites)
+a <- a %>%
+  mutate(dat = as.factor(dat))
+
+library(cutpointr)
+cp <- cutpointr(data = a, x = l3midavg_ascites_exudative_area_cm2, class = dat, method = maximize_metric, metric = youden)
+optimal_cutpoint <- cp$optimal_cutpoint
+```
+Using the cutpointr method the cutoff value is `r optimal_cutpoint`.
+
+```{r}
+data <- data %>%
+  mutate(ascites_median_cat = case_when(
+    l3midavg_ascites_exudative_area_cm2 <= median_cutoff_value        ~ "Absence",
+    l3midavg_ascites_exudative_area_cm2 > median_cutoff_value         ~ "Presence"
+  )) %>%
+  mutate(ascites_cutpoint_cat = case_when(
+    l3midavg_ascites_exudative_area_cm2 <= optimal_cutpoint           ~ "Absence",
+    l3midavg_ascites_exudative_area_cm2 > optimal_cutpoint            ~ "Presence"
+  )) %>%
+  mutate_at(c("ascites_median_cat",
+              "ascites_cutpoint_cat"), ~ factor(., levels = c("Absence", "Presence")))
+```
+
+```{r}
+data %>%
+  select(ascites_median_cat,
+         ascites_cutpoint_cat,
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "ascitesgroup", "(cat)") %>%
+                 str_replace(., "ascites", "Ascites") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**Ascites**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+```
+
+## 3. Set ascites = 0 to No ascites
+### Make a No ascites group
+```{r Make a No ascites group}
+data <- data %>% 
+  mutate(across(c(starts_with("l3midavg_") & 
+                    contains("ascites")), ~ case_when(
+    . == 0                                           ~ "No ascites",
+    !is.na(.)                                        ~ "Yes ascites"
+  ), .names = "{.col}_ascitesgroup"))
+```
+
+```{r Make a No/mild/severe ascites group}
+data <- data %>% 
+  mutate(across(c(starts_with("l3midavg_") & 
+                    contains("ascites"),
+                  -contains("ascitesgroup")), ~ na_if(., 0),
+                .names = "{.col}_nozero"))
+data1 <- data %>% 
+  mutate_at("l3midavg_ascites_exudative_area_cm2_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_exudative_area_cm2 <= median(l3midavg_ascites_exudative_area_cm2_nozero, na.rm = TRUE)     
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_exudative_area_cm2 > median(l3midavg_ascites_exudative_area_cm2_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate_at("l3midavg_ascites_exudative_volume_cm3_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_exudative_volume_cm3 <= median(l3midavg_ascites_exudative_volume_cm3_nozero, na.rm = TRUE)    
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_exudative_volume_cm3 > median(l3midavg_ascites_exudative_volume_cm3_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate_at("l3midavg_ascites_transudative_area_cm2_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_transudative_area_cm2 <= median(l3midavg_ascites_transudative_area_cm2_nozero, na.rm = TRUE)     
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_transudative_area_cm2 > median(l3midavg_ascites_transudative_area_cm2_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate_at("l3midavg_ascites_transudative_volume_cm3_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_transudative_volume_cm3 <= median(l3midavg_ascites_transudative_volume_cm3_nozero, na.rm = TRUE)     
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_transudative_volume_cm3 > median(l3midavg_ascites_transudative_volume_cm3_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate_at("l3midavg_ascites_hemoperitoneum_area_cm2_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_hemoperitoneum_area_cm2 <= median(l3midavg_ascites_hemoperitoneum_area_cm2_nozero, na.rm = TRUE)     
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_hemoperitoneum_area_cm2 > median(l3midavg_ascites_hemoperitoneum_area_cm2_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate_at("l3midavg_ascites_hemoperitoneum_volume_cm3_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_hemoperitoneum_volume_cm3 <= median(l3midavg_ascites_hemoperitoneum_volume_cm3_nozero, na.rm = TRUE)     
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_hemoperitoneum_volume_cm3 > median(l3midavg_ascites_hemoperitoneum_volume_cm3_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate_at("l3midavg_ascites_full_area_cm2_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_full_area_cm2 <= median(l3midavg_ascites_full_area_cm2_nozero, na.rm = TRUE)     
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_full_area_cm2 > median(l3midavg_ascites_full_area_cm2_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate_at("l3midavg_ascites_full_volume_cm3_ascitesgroup", ~ case_when(
+    . == "No ascites"                                ~ "No ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_full_volume_cm3 <= median(l3midavg_ascites_full_volume_cm3_nozero, na.rm = TRUE)     
+    ~ "Mild ascites",
+    . == "Yes ascites" &
+      l3midavg_ascites_full_volume_cm3 > median(l3midavg_ascites_full_volume_cm3_nozero, na.rm = TRUE)      
+    ~ "Severe ascites"
+  )) %>% 
+  mutate(across(c(ends_with("_ascitesgroup")),
+                ~ factor(., levels =
+                           c("No ascites", "Mild ascites", "Severe ascites"))))
+```
+
+```{r}
+data %>%
+  select(ends_with("_ascitesgroup"),
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "ascitesgroup", "(cat)") %>%
+                 str_replace(., "ascites", "Ascites") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**Ascites Yes(feature > 0)/No(feature == 0)**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+data1 %>%
+  select(ends_with("_ascitesgroup"),
+         raceeth) %>%
+  `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "ascitesgroup", "(cat)") %>%
+                 str_replace(., "ascites", "Ascites") %>%
+                 str_replace_all(., "_", " ")) %>%
+  tbl_summary(by = raceeth) %>%
+  bold_labels() %>%
+  add_p() %>% bold_p() %>% add_overall() %>%
+  modify_header(label ~ "**Ascites 3 groups <br>No(feature == 0) <br>
+                Mild(feature < median zeroexcl feature) <br>
+                Severe(feature > median zeroexcl feature)**",
+                all_stat_cols() ~ "**{level}**, N = {n}")
+```
+It might be a difference for the 3 categories Ascites exudative volume cm3, Ascites hemoperitoneum volume cm3 if we look at White vs Black.   
+<br>
+
+
+
+
+
+
+
+# IV. Survival analysis - limit to l3midavg data and actual muscle and adiposity body composition features
+## 1. HR Overall
+```{r HR}
+tbl_1 <- tbl_uvregression(
+  data,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("age_at_diagnosis", 
+              "tnm_cs_mixed_group_stage", 
+              "site", "debulking", 
+              "raceeth", "treatment_type", "bmi_cat",
+              starts_with("predx_")
+              ),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+  ) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl_2 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + site +
+          debulking,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_clin <- tbl_merge(list(tbl_1, tbl_2, tbl_3),
+                      tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
+
+
+tbl_sdhr <- tbl_uvregression(
+  data,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
+              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
+              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
+              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
+              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr"
+              ),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+  ) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+
+tbl_raw <- tbl_uvregression(
+  data,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("l3midavg_skm_hu_mean",
+              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
+              "l3midavg_tat_cm2", "l3midavg_tat_cm3"
+              ),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+  ) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+tbl_index <- tbl_uvregression(
+  data,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("l3midavg_smi", "l3midavg_sarcopenia",
+              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
+              "l3midavg_imat_area_cm2_index",
+              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
+              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index"
+              ),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+  ) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+tbl_prop <- tbl_uvregression(
+  data,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
+              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
+              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
+              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3"
+              ),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+  ) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+tbl_cat <- tbl_uvregression(
+  data,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("ascites_cutpoint_cat",
+              starts_with("l3midavg_") & ends_with("_tertcat")
+              ),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+  ) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+# print("PH assumption")
+# coxph(Surv(time = data$os_time_from_dx_months,
+#              event = data$os_event) ~ age_at_diagnosis + tnm_cs_mixed_group_stage + debulking,
+#         data =  data)  %>%
+#   cox.zph()
+```
+
+```{r gt HR survival}
+merge_tbl <- tbl_stack(list(tbl_1, tbl_sdhr, tbl_raw, tbl_index, tbl_prop, tbl_cat)#, 
+                    # group_header = c("Clinical", "1-SD normalized features",
+                    #                  "Raw features", "Indexed features", 
+                    #                  "Tissue proportion",
+                    #                  "ALL categorical")
+                    )
+
+gt_tbl <-
+  tbl_merge(list(merge_tbl, tbl_2, tbl_3), 
+                    tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**")) %>%
+  # add_variable_group_header(
+  #   header = "Clinical",
+  #   variables = "age_at_diagnosis",
+  #   indent = 0
+  # )|>
+  #   add_variable_group_header(
+  #   header = "1-SD normalized features",
+  #   variables = "l3midavg_skm_hu_mean_sdhr",
+  #   indent = 0
+  # )|>
+  #   add_variable_group_header(
+  #   header = "Raw features",
+  #   variables = "l3midavg_skm_hu_mean",
+  #   indent = 0
+  # )|>
+  #   add_variable_group_header(
+  #   header = "Indexed features",
+  #   variables = "l3midavg_smi",
+  #   indent = 0
+  # )|>
+  #   add_variable_group_header(
+  #   header = "Tissue proportion",
+  #   variables = "l3midavg_muscle_proportion_cm2",
+  #   indent = 0
+  # )|>
+  #   add_variable_group_header(
+  #   header = "ALL categorical",
+  #   variables = "ascites_cutpoint_cat",
+  #   indent = 0
+  # ) %>% 
+  # modify_table_body(
+  #   mutate,
+  #   groupname_col = case_when(variable %in% c("age_at_diagnosis", "predx_diabetes") ~ "Deomgraphics",
+  #                             variable == "l3midavg_myosteatosis" ~ "Tumor Characteristics")
+  # )
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+gt_tbl %>% 
+    tab_row_group(
+    label = "ALL categorical", rows = 85:203
+  ) %>% 
+    tab_row_group(
+    label = "Tissue proportion", rows = 77:84
+  ) %>% 
+    tab_row_group(
+    label = "Indexed features", rows = 70:76
+  ) %>% 
+    tab_row_group(
+    label = "Raw features", rows = 53:69
+  ) %>% 
+  tab_row_group(
+    label = "1-SD normalized features", rows = 41:52
+  ) %>% 
+  tab_row_group(
+    label = "Clinical", rows = 1:40
+  )
+  # data_color(
+  #   columns = everything(),
+  #   rows = 1:20,
+  #   # rows = ends_with("SMI"),
+  #   palette = "lightblue", na_color = "lightblue"
+  # ) %>%
+  # data_color(
+  #   columns = everything(),
+  #   rows = 41:50,
+  #   # rows = ends_with("SMI"),
+  #   palette = "lightblue", na_color = "lightblue"
+  # ) %>%
+  # data_color(
+  #   columns = everything(),
+  #   rows = 56:60,
+  #   # rows = ends_with("SMI"),
+  #   palette = "lightblue", na_color = "lightblue"
+  # ) %>%
+  # data_color(
+  #   columns = everything(),
+  #   rows = 66:85,
+  #   # rows = ends_with("SMI"),
+  #   palette = "lightblue", na_color = "lightblue"
+  # ) %>%
+  # data_color(
+  #   columns = everything(),
+  #   rows = 106:125,
+  #   # rows = ends_with("SMI"),
+  #   palette = "lightblue", na_color = "lightblue"
+  # )
+```
+
+## 2. Startitied by first line therapy
+```{r Stratified treatment}
+data_neo <- data %>%
+  filter(treatment_type == "Upfront chemo")
+
+data_surg <- data %>%
+  filter(treatment_type == "Upfront surgery")
+```
+
+
+### Upfront Chemo
+```{r HR chemo}
+# table(data_neo$l3midavg_sarcopenia, data_neo$os_event)
+# print("there is only 1 level for sarcopenia. Exclude from the model.")
+tbl_1 <- tbl_uvregression(
+  data_neo,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("age_at_diagnosis", 
+              "tnm_cs_mixed_group_stage", 
+              "site", "debulking", 
+              "raceeth", "bmi_cat",
+              starts_with("predx_"),
+              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
+              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
+              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
+              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
+              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
+              "l3midavg_skm_hu_mean",
+              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
+              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
+              "l3midavg_smi", "l3midavg_sarcopenia",
+              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
+              "l3midavg_imat_area_cm2_index",
+              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
+              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
+              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
+              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
+              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
+              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "ascites_cutpoint_cat",
+              starts_with("l3midavg_") & ends_with("_tertcat")),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl_2 <-
+  coxph(Surv(time = data_neo$os_time_from_dx_months,
+             event = data_neo$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage +
+          debulking,
+        data = data_neo) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data_neo$os_time_from_dx_months,
+             event = data_neo$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + site +
+          debulking,
+        data = data_neo) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
+```
+
+### Upfront Surgery
+```{r HR surg}
+# table(data_surg$l3midavg_sarcopenia, data_surg$os_event)
+tbl_1 <- tbl_uvregression(
+  data_surg,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("age_at_diagnosis", 
+              "tnm_cs_mixed_group_stage", 
+              "site", "debulking", 
+              "raceeth", "bmi_cat",
+              starts_with("predx_"),
+              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
+              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
+              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
+              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
+              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
+              "l3midavg_skm_hu_mean",
+              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
+              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
+              "l3midavg_smi", "l3midavg_sarcopenia",
+              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
+              "l3midavg_imat_area_cm2_index",
+              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
+              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
+              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
+              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
+              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
+              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "ascites_cutpoint_cat",
+              starts_with("l3midavg_") & ends_with("_tertcat")),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl_2 <-
+  coxph(Surv(time = data_surg$os_time_from_dx_months,
+             event = data_surg$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage,
+        data = data_surg) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data_surg$os_time_from_dx_months,
+             event = data_surg$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + site +
+          debulking,
+        data = data_surg) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
+```
+
+## 2. Startitied by Sarcopenia presence in L3 migavg region
+```{r Stratified Sarcopenia}
+data_sarcopenia <- data %>%
+  filter(l3midavg_sarcopenia == "<38.5 : sarcopenia")
+
+data_asc_absence <- data %>%
+  filter(l3midavg_sarcopenia == "≥38.5")
+```
+
+### Presence Sarcopenia
+```{r HR stratified yes sarcopenia}
+tbl_1 <- tbl_uvregression(
+  data_sarcopenia,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("age_at_diagnosis", 
+              "tnm_cs_mixed_group_stage", 
+              "site", "debulking", 
+              "raceeth", "treatment_type", "bmi_cat",
+              starts_with("predx_"),
+              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
+              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
+              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
+              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
+              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
+              "l3midavg_skm_hu_mean",
+              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
+              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
+              "l3midavg_smi", 
+              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
+              "l3midavg_imat_area_cm2_index",
+              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
+              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
+              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
+              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
+              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
+              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "ascites_cutpoint_cat",
+              starts_with("l3midavg_") & ends_with("_tertcat")),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+tbl_2 <-
+  coxph(Surv(time = data_sarcopenia$os_time_from_dx_months,
+             event = data_sarcopenia$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage,
+        data = data_sarcopenia) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data_sarcopenia$os_time_from_dx_months,
+             event = data_sarcopenia$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + site +
+          debulking,
+        data = data_sarcopenia) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
+```
+
+### Absence Sarcopenia
+```{r HR stratified no sarcopenia}
+tbl_1 <- tbl_uvregression(
+  data_asc_absence,
+  method = coxph,
+  y = Surv(time = os_time_from_dx_months, event = os_event),
+  exponentiate = TRUE,
+  include = c("age_at_diagnosis", 
+              "tnm_cs_mixed_group_stage", 
+              "site", "debulking", 
+              "raceeth", "treatment_type", "bmi_cat",
+              starts_with("predx_"),
+              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
+              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
+              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
+              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
+              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
+              "l3midavg_skm_hu_mean",
+              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
+              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
+              "l3midavg_smi", 
+              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
+              "l3midavg_imat_area_cm2_index",
+              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
+              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
+              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
+              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
+              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
+              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "ascites_cutpoint_cat",
+              starts_with("l3midavg_") & ends_with("_tertcat")),
+  # pvalue_fun = label_style_pvalue(digits = 2)
+) %>%
+  bold_p(t = .05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level") %>%
+  bold_labels() %>% italicize_levels()
+
+tbl_2 <-
+  coxph(Surv(time = data_asc_absence$os_time_from_dx_months,
+             event = data_asc_absence$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage,
+        data = data_asc_absence) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data_asc_absence$os_time_from_dx_months,
+             event = data_asc_absence$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + site +
+          debulking,
+        data = data_asc_absence) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
+```
+<br>
+
+***
+
+sessionInfo available in Readme file
+
+```{r}
+sessionInfo() %>% capture.output(file="readme_sessioninfo_raceeth_analysis.txt")
+```
+
+
+
+
+
+
+
+
+
