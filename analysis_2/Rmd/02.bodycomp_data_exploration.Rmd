@@ -267,6 +267,7 @@ sigma_data1 <- sigma_data %>%
     treatment_type == "Neoadjuvant"              ~ "upfront chemo",
     treatment_type == "Adjuvant"                 ~ "upfront surgery"
   ))
+use weight_kg height_m
 ```
 
 ```{r join}

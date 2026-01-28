@@ -19,6 +19,7 @@
 *.rds
 *.pptx
 *.docx
+*.txt
 /data
 
 # Example code in progress
