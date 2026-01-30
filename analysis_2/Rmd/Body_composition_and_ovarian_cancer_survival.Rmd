@@ -721,6 +721,31 @@ data <- data %>%
     is.na(l3midavg_imat_area_cm2)                    ~ NA_real_,
     TRUE                                             ~ .
   ))) %>%
+  
+  mutate(l3midavg_vat_adipprop_cm2 = l3midavg_vat_area_cm2 /
+           (l3midavg_vat_area_cm2 +
+              l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
+  mutate(l3midavg_sat_adipprop_cm2 = l3midavg_sat_area_cm2 /
+           (l3midavg_vat_area_cm2 +
+              l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
+  mutate(l3midavg_imat_adipprop_cm2 = l3midavg_imat_area_cm2 /
+           (l3midavg_vat_area_cm2 +
+              l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
+  mutate(l3midavg_vat_adipprop_cm3 = l3midavg_vat_volume_cm3 /
+           (l3midavg_vat_volume_cm3 +
+              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  mutate(l3midavg_sat_adipprop_cm3 = l3midavg_sat_volume_cm3 /
+           (l3midavg_vat_volume_cm3 +
+              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  mutate(l3midavg_imat_adipprop_cm3 = l3midavg_imat_volume_cm3 /
+           (l3midavg_vat_volume_cm3 +
+              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  mutate(across(c(starts_with("(l3midavg_") & contains("_adipprop_")), ~ case_when(
+    is.na(l3midavg_vat_area_cm2) |
+    is.na(l3midavg_sat_area_cm2) |
+    is.na(l3midavg_imat_area_cm2)                    ~ NA_real_,
+    TRUE                                             ~ .
+  ))) %>%
 
   mutate(l3mid_muscle_proportion_cm2 = l3mid_skm_area_cm2 /
            (l3mid_skm_area_cm2 + l3mid_vat_area_cm2 +
@@ -752,6 +777,31 @@ data <- data %>%
     is.na(l3mid_vat_area_cm2) |
     is.na(l3mid_sat_area_cm2) |
     is.na(l3mid_imat_area_cm2)                       ~ NA_real_,
+    TRUE                                             ~ .
+  ))) %>%
+  
+  mutate(l3mid_vat_adipprop_cm2 = l3mid_vat_area_cm2 /
+           (l3mid_vat_area_cm2 +
+              l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
+  mutate(l3mid_sat_adipprop_cm2 = l3mid_sat_area_cm2 /
+           (l3mid_vat_area_cm2 +
+              l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
+  mutate(l3mid_imat_adipprop_cm2 = l3mid_imat_area_cm2 /
+           (l3mid_vat_area_cm2 +
+              l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
+  mutate(l3mid_vat_adipprop_cm3 = l3mid_vat_volume_cm3 /
+           (l3mid_vat_volume_cm3 +
+              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  mutate(l3mid_sat_adipprop_cm3 = l3mid_sat_volume_cm3 /
+           (l3mid_vat_volume_cm3 +
+              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  mutate(l3mid_imat_adipprop_cm3 = l3mid_imat_volume_cm3 /
+           (l3mid_vat_volume_cm3 +
+              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  mutate(across(c(starts_with("(l3mid_") & contains("_adipprop_")), ~ case_when(
+    is.na(l3mid_vat_area_cm2) |
+    is.na(l3mid_sat_area_cm2) |
+    is.na(l3mid_imat_area_cm2)                    ~ NA_real_,
     TRUE                                             ~ .
   ))) %>%
 
@@ -787,6 +837,32 @@ data <- data %>%
     is.na(l3start_l3end_imat_area_cm2)               ~ NA_real_,
     TRUE                                             ~ .
   ))) %>% 
+  
+  mutate(l3start_l3end_vat_adipprop_cm2 = l3start_l3end_vat_area_cm2 /
+           (l3start_l3end_vat_area_cm2 +
+              l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
+  mutate(l3start_l3end_sat_adipprop_cm2 = l3start_l3end_sat_area_cm2 /
+           (l3start_l3end_vat_area_cm2 +
+              l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
+  mutate(l3start_l3end_imat_adipprop_cm2 = l3start_l3end_imat_area_cm2 /
+           (l3start_l3end_vat_area_cm2 +
+              l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
+  mutate(l3start_l3end_vat_adipprop_cm3 = l3start_l3end_vat_volume_cm3 /
+           (l3start_l3end_vat_volume_cm3 +
+              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  mutate(l3start_l3end_sat_adipprop_cm3 = l3start_l3end_sat_volume_cm3 /
+           (l3start_l3end_vat_volume_cm3 +
+              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  mutate(l3start_l3end_imat_adipprop_cm3 = l3start_l3end_imat_volume_cm3 /
+           (l3start_l3end_vat_volume_cm3 +
+              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  mutate(across(c(starts_with("(l3start_l3end_") & contains("_adipprop_")), ~ case_when(
+    is.na(l3start_l3end_vat_area_cm2) |
+    is.na(l3start_l3end_sat_area_cm2) |
+    is.na(l3start_l3end_imat_area_cm2)                    ~ NA_real_,
+    TRUE                                             ~ .
+  ))) %>%
+  
   mutate(across(c(ends_with("skm_area_cm2"), ends_with("skm_volume_cm3"),
                   ends_with("vat_area_cm2"), ends_with("vat_volume_cm3"), 
                   ends_with("sat_area_cm2"), ends_with("sat_volume_cm3"),
@@ -794,7 +870,8 @@ data <- data %>%
                   ends_with("skm_hu_mean"),
                   contains("_smi"), 
                   contains("_index"),
-                  contains("_proportion")
+                  contains("_proportion"),
+                  contains("_adipprop_")
                   ), ~ . / sd(., na.rm = TRUE) , .names = "{.col}_sdhr"))
 ```
 
@@ -808,6 +885,7 @@ data <- data %>%
                   starts_with("l3") & contains("_sat"),
                   starts_with("l3") & contains("_vat"),
                   starts_with("l3") & contains("_proportion"),
+                  starts_with("l3") & contains("_adipprop_"),
                   starts_with("l3") & contains("_v_s_ratio"),
                   starts_with("l3") & contains("_tat"), 
                   -ends_with("_sdhr")
@@ -820,6 +898,11 @@ data <- data %>%
                 ~ factor(., levels =
                            c("Low", "Medium", "High"))))
 ```
+
+```{r save data}
+write_csv(data, paste0(here::here(), "/data/processed_data/analysis_2/clinical_dafs_moffitt_roswell_analysis_data_20260129.csv"))
+```
+
 
 ```{r Labeling data}
 var_label(data) <- list(age_at_diagnosis = "Patient age",
@@ -1031,8 +1114,11 @@ tbl_index <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 tbl_midavg <- data %>%
   select(l3midavg_muscle_proportion_cm2, l3midavg_sat_proportion_cm2, l3midavg_vat_proportion_cm2, l3midavg_imat_proportion_cm2,
          l3midavg_muscle_proportion_cm3, l3midavg_sat_proportion_cm3, l3midavg_vat_proportion_cm3, l3midavg_imat_proportion_cm3,
+         l3midavg_sat_adipprop_cm2, l3midavg_vat_adipprop_cm2, l3midavg_imat_adipprop_cm2,
+         l3midavg_sat_adipprop_cm3, l3midavg_vat_adipprop_cm3, l3midavg_imat_proportion_cm3,
          site) %>% 
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "adipprop", "adiposity prop") %>%
                  str_replace(., "sat", "SAT") %>%
                  str_replace(., "vat", "VAT") %>%
                  str_replace(., "imat", "IMAT") %>%
@@ -1047,8 +1133,11 @@ tbl_midavg <- data %>%
 tbl_mid <- data %>%
   select(l3mid_muscle_proportion_cm2, l3mid_sat_proportion_cm2, l3mid_vat_proportion_cm2, l3mid_imat_proportion_cm2,
          l3mid_muscle_proportion_cm3, l3mid_sat_proportion_cm3, l3mid_vat_proportion_cm3, l3mid_imat_proportion_cm3,
+         l3mid_sat_adipprop_cm2, l3mid_vat_adipprop_cm2, l3mid_imat_adipprop_cm2,
+         l3mid_sat_adipprop_cm3, l3mid_vat_adipprop_cm3, l3mid_imat_adipprop_cm3,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "adipprop", "adiposity prop") %>%
                  str_replace(., "sat", "SAT") %>%
                  str_replace(., "vat", "VAT") %>%
                  str_replace(., "imat", "IMAT") %>%
@@ -1061,8 +1150,11 @@ tbl_mid <- data %>%
 tbl_l3startend <- data %>%
   select(l3start_l3end_muscle_proportion_cm2, l3start_l3end_sat_proportion_cm2, l3start_l3end_vat_proportion_cm2, l3start_l3end_imat_proportion_cm2,
          l3start_l3end_muscle_proportion_cm3, l3start_l3end_sat_proportion_cm3, l3start_l3end_vat_proportion_cm3, l3start_l3end_imat_proportion_cm3,
+         l3start_l3end_sat_adipprop_cm2, l3start_l3end_vat_adipprop_cm2, l3start_l3end_imat_adipprop_cm2,
+         l3start_l3end_sat_adipprop_cm3, l3start_l3end_vat_adipprop_cm3, l3start_l3end_imat_adipprop_cm3,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "adipprop", "adiposity prop") %>%
                  str_replace(., "sat", "SAT") %>%
                  str_replace(., "vat", "VAT") %>%
                  str_replace(., "imat", "IMAT") %>%
@@ -1128,7 +1220,7 @@ tbl_ascites <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 ```{r site gt}
 gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop, tbl_ascites), 
                     group_header = c("Raw features", "Indexed features", "Tissue proportion", "Ascites")) %>%
-  as_gt(#rownames_to_stub = TRUE
+  as_gt(rownames_to_stub = TRUE
   ) %>%
   gt::tab_options(row_group.border.top.color = "black",
                   row_group.border.top.width = 3,
@@ -1185,7 +1277,13 @@ gt_tbl %>%
   ) %>%
   data_color(
     direction = "row",
-    rows = 67:74,
+    rows = 67:72,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    direction = "row",
+    rows = 79:86,
     # rows = ends_with("SMI"),
     palette = "lightblue", na_color = "lightblue"
   )
@@ -1333,8 +1431,11 @@ tbl_index <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 tbl_midavg <- data %>%
   select(l3midavg_muscle_proportion_cm2_tertcat, l3midavg_sat_proportion_cm2_tertcat, l3midavg_vat_proportion_cm2_tertcat, l3midavg_imat_proportion_cm2_tertcat,
          l3midavg_muscle_proportion_cm3_tertcat, l3midavg_sat_proportion_cm3_tertcat, l3midavg_vat_proportion_cm3_tertcat, l3midavg_imat_proportion_cm3_tertcat,
+         l3midavg_sat_adipprop_cm2_tertcat, l3midavg_vat_adipprop_cm2_tertcat, l3midavg_imat_adipprop_cm2_tertcat,
+         l3midavg_sat_adipprop_cm3_tertcat, l3midavg_vat_adipprop_cm3_tertcat, l3midavg_imat_adipprop_cm3_tertcat,
          site) %>% 
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
+                 str_replace(., "adipprop", "adiposity prop") %>%
                  str_replace(., "tertcat", "(cat)") %>%
                  str_replace(., "sat", "SAT") %>%
                  str_replace(., "vat", "VAT") %>%
@@ -1350,8 +1451,11 @@ tbl_midavg <- data %>%
 tbl_mid <- data %>%
   select(l3mid_muscle_proportion_cm2_tertcat, l3mid_sat_proportion_cm2_tertcat, l3mid_vat_proportion_cm2_tertcat, l3mid_imat_proportion_cm2_tertcat,
          l3mid_muscle_proportion_cm3_tertcat, l3mid_sat_proportion_cm3_tertcat, l3mid_vat_proportion_cm3_tertcat, l3mid_imat_proportion_cm3_tertcat,
+         l3mid_sat_adipprop_cm2_tertcat, l3mid_vat_adipprop_cm2_tertcat, l3mid_imat_adipprop_cm2_tertcat,
+         l3mid_sat_adipprop_cm3_tertcat, l3mid_vat_adipprop_cm3_tertcat, l3mid_imat_adipprop_cm3_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
+                 str_replace(., "adipprop", "adiposity prop") %>%
                  str_replace(., "tertcat", "(cat)") %>%
                  str_replace(., "sat", "SAT") %>%
                  str_replace(., "vat", "VAT") %>%
@@ -1365,8 +1469,11 @@ tbl_mid <- data %>%
 tbl_l3startend <- data %>%
   select(l3start_l3end_muscle_proportion_cm2_tertcat, l3start_l3end_sat_proportion_cm2_tertcat, l3start_l3end_vat_proportion_cm2_tertcat, l3start_l3end_imat_proportion_cm2_tertcat,
          l3start_l3end_muscle_proportion_cm3_tertcat, l3start_l3end_sat_proportion_cm3_tertcat, l3start_l3end_vat_proportion_cm3_tertcat, l3start_l3end_imat_proportion_cm3_tertcat,
+         l3start_l3end_sat_adipprop_cm2_tertcat, l3start_l3end_vat_adipprop_cm2_tertcat, l3start_l3end_imat_adipprop_cm2_tertcat,
+         l3start_l3end_sat_adipprop_cm3_tertcat, l3start_l3end_vat_adipprop_cm3_tertcat, l3start_l3end_imat_adipprop_cm3_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
+                 str_replace(., "adipprop", "adiposity prop") %>%
                  str_replace(., "tertcat", "(cat)") %>%
                  str_replace(., "sat", "SAT") %>%
                  str_replace(., "vat", "VAT") %>%
@@ -1384,7 +1491,7 @@ tbl_prop <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 ```{r cat site gt}
 gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop), 
                     group_header = c("Raw features", "Indexed features", "Tissue proportion")) %>%
-  as_gt(#rownames_to_stub = TRUE
+  as_gt(rownames_to_stub = TRUE
   ) %>%
   gt::tab_options(row_group.border.top.color = "black",
                   row_group.border.top.width = 3,
@@ -1396,32 +1503,38 @@ gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop),
 # gt_tbl
 gt_tbl %>%
   data_color(
-    columns = everything(),
+    direction = "row",
     rows = 1:20,
     # rows = ends_with("SMI"),
     palette = "lightblue", na_color = "lightblue"
   ) %>%
   data_color(
-    columns = everything(),
+    direction = "row",
     rows = 41:50,
     # rows = ends_with("SMI"),
     palette = "lightblue", na_color = "lightblue"
   ) %>%
   data_color(
-    columns = everything(),
+    direction = "row",
     rows = 56:60,
     # rows = ends_with("SMI"),
     palette = "lightblue", na_color = "lightblue"
   ) %>%
   data_color(
-    columns = everything(),
+    direction = "row",
     rows = 66:85,
     # rows = ends_with("SMI"),
     palette = "lightblue", na_color = "lightblue"
   ) %>%
   data_color(
-    columns = everything(),
+    direction = "row",
     rows = 106:125,
+    # rows = ends_with("SMI"),
+    palette = "lightblue", na_color = "lightblue"
+  ) %>%
+  data_color(
+    direction = "row",
+    rows = 146:160,
     # rows = ends_with("SMI"),
     palette = "lightblue", na_color = "lightblue"
   )
@@ -1453,6 +1566,7 @@ midavg_data <- data %>%
   select(starts_with("l3midavg_") & contains("_ratio"),
          starts_with("l3midavg_") & contains("_tat"),
          starts_with("l3midavg_") & contains("_proportion"),
+         starts_with("l3midavg_") & contains("_adipprop"),
          starts_with("l3midavg_") & ends_with("_smi"),
          starts_with("l3midavg_") & ends_with("_index"),
          starts_with("l3midavg_") & contains("skm_hu"),
@@ -1472,6 +1586,8 @@ midavg_data %>%
                                      "vat_volume_cm3_index", "sat_volume_cm3_index", "imat_volume_cm3_index",
                                      "vat_proportion_cm2", "sat_proportion_cm2", "imat_proportion_cm2",
                                      "vat_proportion_cm3", "sat_proportion_cm3", "imat_proportion_cm3",
+                                     "vat_adipprop_cm2", "sat_adipprop_cm2", "imat_adipprop_cm2",
+                                     "vat_adipprop_cm3", "sat_adipprop_cm3", "imat_adipprop_cm3",
                                      "v_s_ratio_cm2", "tat_cm2", "smi",
                                      "v_s_ratio_cm3", "tat_cm3", "skm_volume_cm3_index", 
                                      "skm_hu_mean", "muscle_proportion_cm2", "muscle_proportion_cm3"
@@ -1885,6 +2001,7 @@ data %>%
   select(starts_with("l3midavg_") & contains("_ratio"),
          starts_with("l3midavg_") & contains("_tat"),
          starts_with("l3midavg_") & contains("_proportion"),
+         starts_with("l3midavg_") & contains("_adipprop"),
          starts_with("l3midavg_") & ends_with("_smi"),
          starts_with("l3midavg_") & ends_with("_index"),
          starts_with("l3midavg_") & contains("skm_hu"),
@@ -1914,6 +2031,7 @@ data %>%
   select(starts_with("l3midavg_") & contains("_ratio"),
          starts_with("l3midavg_") & contains("_tat"),
          starts_with("l3midavg_") & contains("_proportion"),
+         starts_with("l3midavg_") & contains("_adipprop"),
          starts_with("l3midavg_") & ends_with("_smi"),
          starts_with("l3midavg_") & ends_with("_index"),
          starts_with("l3midavg_") & contains("skm_hu"),
@@ -1990,12 +2108,12 @@ data <- data %>%
 ```{r}
 data %>%
   select(ends_with("_ascitesgroup"),
-         raceeth) %>%
+         site) %>%
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
                  str_replace(., "ascitesgroup", "(cat)") %>%
                  str_replace(., "ascites", "Ascites") %>%
                  str_replace_all(., "_", " ")) %>%
-  tbl_summary(by = raceeth) %>%
+  tbl_summary(by = site) %>%
   bold_labels() %>%
   add_p() %>% bold_p() %>% add_overall() %>%
   modify_header(label ~ "**Ascites Yes(feature > 0)/No(feature == 0)**",
@@ -2274,11 +2392,11 @@ tbl_index <- tbl_uvregression(
   method = coxph,
   y = Surv(time = os_time_from_dx_months, event = os_event),
   exponentiate = TRUE,
-  include = c("l3midavg_smi", "l3midavg_sarcopenia",
-              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
-              "l3midavg_imat_area_cm2_index",
-              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
-              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index"
+  include = c("l3midavg_smi_sdhr", "l3midavg_sarcopenia",
+              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
+              "l3midavg_imat_area_cm2_index_sdhr",
+              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
+              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr"
               ),
   # pvalue_fun = label_style_pvalue(digits = 2)
   ) %>%
@@ -2291,10 +2409,14 @@ tbl_prop <- tbl_uvregression(
   method = coxph,
   y = Surv(time = os_time_from_dx_months, event = os_event),
   exponentiate = TRUE,
-  include = c("l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
-              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
-              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
-              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3"
+  include = c("l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
+              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
+              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
+              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
+              "l3midavg_sat_adipprop_cm2_sdhr", 
+              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
+              "l3midavg_sat_adipprop_cm3_sdhr", 
+              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr"
               ),
   # pvalue_fun = label_style_pvalue(digits = 2)
   ) %>%
@@ -2380,16 +2502,16 @@ gt_tbl <-
                   row_group.background.color = "grey")
 gt_tbl %>% 
     tab_row_group(
-    label = "ALL categorical", rows = 86:204
+    label = "ALL categorical", rows = 92:204
   ) %>% 
     tab_row_group(
-    label = "Tissue proportion", rows = 78:85
+    label = "1-SD normalized tissue proportion", rows = 78:91
   ) %>% 
     tab_row_group(
-    label = "Indexed features", rows = 71:77
+    label = "1-SD normalized indexed features", rows = 67:77
   ) %>% 
     tab_row_group(
-    label = "Raw features", rows = 54:70
+    label = "Raw features", rows = 54:66
   ) %>% 
   tab_row_group(
     label = "1-SD normalized features", rows = 42:53
@@ -2429,6 +2551,100 @@ gt_tbl %>%
   # )
 ```
 
+### Multivariable for muscle quality
+```{r}
+tbl_1 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_skm_hu_mean_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_myosteatosis,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_merge(list(tbl_1, tbl_2),
+                      tab_spanner = c("**Muscle quality**", "**Myosteatosis**"))
+```
+
+### Multivariable for proportion
+```{r}
+tbl_1 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_muscle_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_vat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_sat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_imat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_merge(list(tbl_1, tbl_2, tbl_3, tbl_4),
+                      tab_spanner = c("**Muscle proportion**", "**VAT proportion**", "**SAT proportion**", "**IMAT proportion**"))
+```
+
+```{r}
+tbl_2 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_vat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_sat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis +
+          tnm_cs_mixed_group_stage + l3midavg_imat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_merge(list(tbl_2, tbl_3, tbl_4),
+                      tab_spanner = c("**VAT Adiposity proportion**", "**SAT Adiposity proportion**", "**IMAT Adiposity proportion**"))
+```
+<br>
+
+
+
 ## 2. Startitied by first line therapy
 ```{r Stratified treatment}
 data_neo <- data %>%
@@ -2458,22 +2674,26 @@ tbl_1 <- tbl_uvregression(
               "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
               "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
               "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              "l3midavg_skm_hu_mean",
-              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              # "l3midavg_skm_hu_mean",
+              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
               "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
               "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi", "l3midavg_sarcopenia",
-              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
-              "l3midavg_imat_area_cm2_index",
-              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
-              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
-              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
-              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
-              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
-              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "l3midavg_smi_sdhr", "l3midavg_sarcopenia",
+              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
+              "l3midavg_imat_area_cm2_index_sdhr",
+              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
+              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
+              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
+              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
+              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
+              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
+              "l3midavg_sat_adipprop_cm2_sdhr", 
+              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
+              "l3midavg_sat_adipprop_cm3_sdhr", 
+              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
               "ascites_cutpoint_cat",
               starts_with("l3midavg_") & ends_with("_tertcat")),
   # pvalue_fun = label_style_pvalue(digits = 2)
@@ -2521,22 +2741,26 @@ tbl_1 <- tbl_uvregression(
               "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
               "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
               "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              "l3midavg_skm_hu_mean",
-              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              # "l3midavg_skm_hu_mean",
+              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
               "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
               "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi", "l3midavg_sarcopenia",
-              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
-              "l3midavg_imat_area_cm2_index",
-              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
-              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
-              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
-              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
-              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
-              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "l3midavg_smi_sdhr", "l3midavg_sarcopenia",
+              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
+              "l3midavg_imat_area_cm2_index_sdhr",
+              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
+              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
+              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
+              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
+              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
+              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
+              "l3midavg_sat_adipprop_cm2_sdhr", 
+              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
+              "l3midavg_sat_adipprop_cm3_sdhr", 
+              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
               "ascites_cutpoint_cat",
               starts_with("l3midavg_") & ends_with("_tertcat")),
   # pvalue_fun = label_style_pvalue(digits = 2)
@@ -2591,22 +2815,26 @@ tbl_1 <- tbl_uvregression(
               "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
               "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
               "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              "l3midavg_skm_hu_mean",
-              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              # "l3midavg_skm_hu_mean",
+              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
               "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
               "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi", 
-              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
-              "l3midavg_imat_area_cm2_index",
-              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
-              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
-              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
-              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
-              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
-              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "l3midavg_smi_sdhr", 
+              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
+              "l3midavg_imat_area_cm2_index_sdhr",
+              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
+              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
+              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
+              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
+              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
+              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
+              "l3midavg_sat_adipprop_cm2_sdhr", 
+              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
+              "l3midavg_sat_adipprop_cm3_sdhr", 
+              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
               "ascites_cutpoint_cat",
               starts_with("l3midavg_") & ends_with("_tertcat")),
   # pvalue_fun = label_style_pvalue(digits = 2)
@@ -2652,22 +2880,26 @@ tbl_1 <- tbl_uvregression(
               "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
               "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
               "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              "l3midavg_skm_hu_mean",
-              "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
+              # "l3midavg_skm_hu_mean",
+              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
+              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
+              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
+              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
               "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
               "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi", 
-              "l3midavg_sat_area_cm2_index", "l3midavg_vat_area_cm2_index", 
-              "l3midavg_imat_area_cm2_index",
-              "l3midavg_skm_volume_cm3_index", "l3midavg_sat_volume_cm3_index", 
-              "l3midavg_vat_volume_cm3_index", "l3midavg_imat_volume_cm3_index",
-              "l3midavg_muscle_proportion_cm2", "l3midavg_sat_proportion_cm2", 
-              "l3midavg_vat_proportion_cm2", "l3midavg_imat_proportion_cm2",
-              "l3midavg_muscle_proportion_cm3", "l3midavg_sat_proportion_cm3", 
-              "l3midavg_vat_proportion_cm3", "l3midavg_imat_proportion_cm3",
+              "l3midavg_smi_sdhr", 
+              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
+              "l3midavg_imat_area_cm2_index_sdhr",
+              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
+              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
+              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
+              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
+              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
+              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
+              "l3midavg_sat_adipprop_cm2_sdhr", 
+              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
+              "l3midavg_sat_adipprop_cm3_sdhr", 
+              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
               "ascites_cutpoint_cat",
               starts_with("l3midavg_") & ends_with("_tertcat")),
   # pvalue_fun = label_style_pvalue(digits = 2)
@@ -2818,7 +3050,7 @@ tbl_2 <-
 
 tbl_merge(list(tbl_1, tbl_2), tab_spanner = c("**Univariable**", "**Multivariable All phenotypes**"))
 ```
-
+Multivariable for each phenotype
 ```{r}
 tbl_1 <-
   coxph(Surv(time = data$os_time_from_dx_months,
