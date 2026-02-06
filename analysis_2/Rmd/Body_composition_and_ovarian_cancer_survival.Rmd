@@ -689,6 +689,8 @@ data <- data %>%
     is.na(l3start_l3end_imat_volume_cm3)               ~ NA_real_,
     TRUE                                             ~ l3start_l3end_vat_volume_cm3 + l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3
   )) %>%
+  mutate(across(c(contains("tat_cm")), ~ . / (height_m ^2),
+                .names = "{.col}_index"), .after = l3start_l3end_tat_cm3) %>%
   # Proportion - remove the values if one feature is NA
   mutate(l3midavg_muscle_proportion_cm2 = l3midavg_skm_area_cm2 /
            (l3midavg_skm_area_cm2 + l3midavg_vat_area_cm2 +
@@ -702,18 +704,18 @@ data <- data %>%
   mutate(l3midavg_imat_proportion_cm2 = l3midavg_imat_area_cm2 /
            (l3midavg_skm_area_cm2 + l3midavg_vat_area_cm2 +
               l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
-  mutate(l3midavg_muscle_proportion_cm3 = l3midavg_skm_volume_cm3 /
-           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
-              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
-  mutate(l3midavg_vat_proportion_cm3 = l3midavg_vat_volume_cm3 /
-           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
-              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
-  mutate(l3midavg_sat_proportion_cm3 = l3midavg_sat_volume_cm3 /
-           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
-              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
-  mutate(l3midavg_imat_proportion_cm3 = l3midavg_imat_volume_cm3 /
-           (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
-              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  # mutate(l3midavg_muscle_proportion_cm3 = l3midavg_skm_volume_cm3 /
+  #          (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+  #             l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  # mutate(l3midavg_vat_proportion_cm3 = l3midavg_vat_volume_cm3 /
+  #          (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+  #             l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  # mutate(l3midavg_sat_proportion_cm3 = l3midavg_sat_volume_cm3 /
+  #          (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+  #             l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  # mutate(l3midavg_imat_proportion_cm3 = l3midavg_imat_volume_cm3 /
+  #          (l3midavg_skm_volume_cm3 + l3midavg_vat_volume_cm3 +
+  #             l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
   mutate(across(c(starts_with("(l3midavg_") & contains("_proportion")), ~ case_when(
     is.na(l3midavg_skm_area_cm2) |
     is.na(l3midavg_vat_area_cm2) |
@@ -731,15 +733,15 @@ data <- data %>%
   mutate(l3midavg_imat_adipprop_cm2 = l3midavg_imat_area_cm2 /
            (l3midavg_vat_area_cm2 +
               l3midavg_sat_area_cm2 + l3midavg_imat_area_cm2)) %>%
-  mutate(l3midavg_vat_adipprop_cm3 = l3midavg_vat_volume_cm3 /
-           (l3midavg_vat_volume_cm3 +
-              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
-  mutate(l3midavg_sat_adipprop_cm3 = l3midavg_sat_volume_cm3 /
-           (l3midavg_vat_volume_cm3 +
-              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
-  mutate(l3midavg_imat_adipprop_cm3 = l3midavg_imat_volume_cm3 /
-           (l3midavg_vat_volume_cm3 +
-              l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  # mutate(l3midavg_vat_adipprop_cm3 = l3midavg_vat_volume_cm3 /
+  #          (l3midavg_vat_volume_cm3 +
+  #             l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  # mutate(l3midavg_sat_adipprop_cm3 = l3midavg_sat_volume_cm3 /
+  #          (l3midavg_vat_volume_cm3 +
+  #             l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
+  # mutate(l3midavg_imat_adipprop_cm3 = l3midavg_imat_volume_cm3 /
+  #          (l3midavg_vat_volume_cm3 +
+  #             l3midavg_sat_volume_cm3 + l3midavg_imat_volume_cm3)) %>%
   mutate(across(c(starts_with("(l3midavg_") & contains("_adipprop_")), ~ case_when(
     is.na(l3midavg_vat_area_cm2) |
     is.na(l3midavg_sat_area_cm2) |
@@ -760,18 +762,18 @@ data <- data %>%
            (l3mid_skm_area_cm2 + l3mid_vat_area_cm2 +
               l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
 
-   mutate(l3mid_muscle_proportion_cm3 = l3mid_skm_volume_cm3 /
-           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
-              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
-  mutate(l3mid_vat_proportion_cm3 = l3mid_vat_volume_cm3 /
-           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
-              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
-  mutate(l3mid_sat_proportion_cm3 = l3mid_sat_volume_cm3 /
-           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
-              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
-  mutate(l3mid_imat_proportion_cm3 = l3mid_imat_volume_cm3 /
-           (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
-              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  #  mutate(l3mid_muscle_proportion_cm3 = l3mid_skm_volume_cm3 /
+  #          (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+  #             l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  # mutate(l3mid_vat_proportion_cm3 = l3mid_vat_volume_cm3 /
+  #          (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+  #             l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  # mutate(l3mid_sat_proportion_cm3 = l3mid_sat_volume_cm3 /
+  #          (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+  #             l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  # mutate(l3mid_imat_proportion_cm3 = l3mid_imat_volume_cm3 /
+  #          (l3mid_skm_volume_cm3 + l3mid_vat_volume_cm3 +
+  #             l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
   mutate(across(c(starts_with("(l3mid_") & contains("_proportion")), ~ case_when(
     is.na(l3mid_skm_area_cm2) |
     is.na(l3mid_vat_area_cm2) |
@@ -789,15 +791,15 @@ data <- data %>%
   mutate(l3mid_imat_adipprop_cm2 = l3mid_imat_area_cm2 /
            (l3mid_vat_area_cm2 +
               l3mid_sat_area_cm2 + l3mid_imat_area_cm2)) %>%
-  mutate(l3mid_vat_adipprop_cm3 = l3mid_vat_volume_cm3 /
-           (l3mid_vat_volume_cm3 +
-              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
-  mutate(l3mid_sat_adipprop_cm3 = l3mid_sat_volume_cm3 /
-           (l3mid_vat_volume_cm3 +
-              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
-  mutate(l3mid_imat_adipprop_cm3 = l3mid_imat_volume_cm3 /
-           (l3mid_vat_volume_cm3 +
-              l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  # mutate(l3mid_vat_adipprop_cm3 = l3mid_vat_volume_cm3 /
+  #          (l3mid_vat_volume_cm3 +
+  #             l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  # mutate(l3mid_sat_adipprop_cm3 = l3mid_sat_volume_cm3 /
+  #          (l3mid_vat_volume_cm3 +
+  #             l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
+  # mutate(l3mid_imat_adipprop_cm3 = l3mid_imat_volume_cm3 /
+  #          (l3mid_vat_volume_cm3 +
+  #             l3mid_sat_volume_cm3 + l3mid_imat_volume_cm3)) %>%
   mutate(across(c(starts_with("(l3mid_") & contains("_adipprop_")), ~ case_when(
     is.na(l3mid_vat_area_cm2) |
     is.na(l3mid_sat_area_cm2) |
@@ -818,18 +820,18 @@ data <- data %>%
            (l3start_l3end_skm_area_cm2 + l3start_l3end_vat_area_cm2 +
               l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
 
-   mutate(l3start_l3end_muscle_proportion_cm3 = l3start_l3end_skm_volume_cm3 /
-           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
-              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
-  mutate(l3start_l3end_vat_proportion_cm3 = l3start_l3end_vat_volume_cm3 /
-           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
-              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
-  mutate(l3start_l3end_sat_proportion_cm3 = l3start_l3end_sat_volume_cm3 /
-           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
-              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
-  mutate(l3start_l3end_imat_proportion_cm3 = l3start_l3end_imat_volume_cm3 /
-           (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
-              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  #  mutate(l3start_l3end_muscle_proportion_cm3 = l3start_l3end_skm_volume_cm3 /
+  #          (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+  #             l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  # mutate(l3start_l3end_vat_proportion_cm3 = l3start_l3end_vat_volume_cm3 /
+  #          (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+  #             l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  # mutate(l3start_l3end_sat_proportion_cm3 = l3start_l3end_sat_volume_cm3 /
+  #          (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+  #             l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  # mutate(l3start_l3end_imat_proportion_cm3 = l3start_l3end_imat_volume_cm3 /
+  #          (l3start_l3end_skm_volume_cm3 + l3start_l3end_vat_volume_cm3 +
+  #             l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
   mutate(across(c(starts_with("(l3start_l3end_") & contains("_proportion")), ~ case_when(
     is.na(l3start_l3end_skm_area_cm2) |
     is.na(l3start_l3end_vat_area_cm2) |
@@ -847,15 +849,15 @@ data <- data %>%
   mutate(l3start_l3end_imat_adipprop_cm2 = l3start_l3end_imat_area_cm2 /
            (l3start_l3end_vat_area_cm2 +
               l3start_l3end_sat_area_cm2 + l3start_l3end_imat_area_cm2)) %>%
-  mutate(l3start_l3end_vat_adipprop_cm3 = l3start_l3end_vat_volume_cm3 /
-           (l3start_l3end_vat_volume_cm3 +
-              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
-  mutate(l3start_l3end_sat_adipprop_cm3 = l3start_l3end_sat_volume_cm3 /
-           (l3start_l3end_vat_volume_cm3 +
-              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
-  mutate(l3start_l3end_imat_adipprop_cm3 = l3start_l3end_imat_volume_cm3 /
-           (l3start_l3end_vat_volume_cm3 +
-              l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  # mutate(l3start_l3end_vat_adipprop_cm3 = l3start_l3end_vat_volume_cm3 /
+  #          (l3start_l3end_vat_volume_cm3 +
+  #             l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  # mutate(l3start_l3end_sat_adipprop_cm3 = l3start_l3end_sat_volume_cm3 /
+  #          (l3start_l3end_vat_volume_cm3 +
+  #             l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
+  # mutate(l3start_l3end_imat_adipprop_cm3 = l3start_l3end_imat_volume_cm3 /
+  #          (l3start_l3end_vat_volume_cm3 +
+  #             l3start_l3end_sat_volume_cm3 + l3start_l3end_imat_volume_cm3)) %>%
   mutate(across(c(starts_with("(l3start_l3end_") & contains("_adipprop_")), ~ case_when(
     is.na(l3start_l3end_vat_area_cm2) |
     is.na(l3start_l3end_sat_area_cm2) |
@@ -869,11 +871,27 @@ data <- data %>%
                   ends_with("imat_area_cm2"), ends_with("imat_volume_cm3"),
                   ends_with("skm_hu_mean"),
                   contains("_smi"), 
+                  contains("_tat"), 
+                  contains("_v_s"), 
                   contains("_index"),
                   contains("_proportion"),
                   contains("_adipprop_")
                   ), ~ . / sd(., na.rm = TRUE) , .names = "{.col}_sdhr"))
 ```
+
+```{r check proportion cm2 vs cm3}
+# which(round(data$l3midavg_muscle_proportion_cm2, 3) != round(data$l3midavg_muscle_proportion_cm3, 3))
+# which(round(data$l3midavg_vat_proportion_cm2, 3) != round(data$l3midavg_vat_proportion_cm3, 3))
+# which(round(data$l3midavg_sat_proportion_cm2, 3) != round(data$l3midavg_sat_proportion_cm3, 3))
+# which(round(data$l3midavg_imat_proportion_cm2, 3) != round(data$l3midavg_imat_proportion_cm3, 3))
+# They are identical
+
+# which(round(data$l3mid_vat_adipprop_cm2, 3) != round(data$l3mid_vat_adipprop_cm3, 3))
+# which(round(data$l3mid_sat_adipprop_cm2, 3) != round(data$l3mid_sat_adipprop_cm3, 3))
+# which(round(data$l3mid_imat_adipprop_cm2, 3) != round(data$l3mid_imat_adipprop_cm3, 3))
+# They are identical
+```
+
 
 ```{r make categorical var}
 data <- data %>%
@@ -900,9 +918,11 @@ data <- data %>%
 ```
 
 ```{r save data}
-write_csv(data, paste0(here::here(), "/data/processed_data/analysis_2/clinical_dafs_moffitt_roswell_analysis_data_20260129.csv"))
+write_csv(data, paste0(here::here(), 
+                       "/data/processed_data/analysis_2",
+                       "/clinical_dafs_moffitt_roswell_analysis_data_", 
+                       str_remove_all(today(), "-"), ".csv"))
 ```
-
 
 ```{r Labeling data}
 var_label(data) <- list(age_at_diagnosis = "Patient age",
@@ -981,11 +1001,11 @@ data %>%
 ### a. Continuous
 ```{r table by site}
 tbl_midavg <- data %>%
-  select(l3midavg_skm_area_cm2, l3midavg_sat_area_cm2, l3midavg_vat_area_cm2, l3midavg_imat_area_cm2,
-         l3midavg_skm_volume_cm3, l3midavg_sat_volume_cm3, l3midavg_vat_volume_cm3, l3midavg_imat_volume_cm3,
-         l3midavg_skm_hu_mean, l3midavg_myosteatosis,
-         l3midavg_v_s_ratio_cm2, l3midavg_v_s_ratio_cm3,
-         l3midavg_tat_cm2, l3midavg_tat_cm3,
+  select(l3midavg_skm_hu_mean, l3midavg_myosteatosis,,
+         l3midavg_skm_area_cm2, l3midavg_sat_area_cm2, l3midavg_vat_area_cm2, 
+         l3midavg_imat_area_cm2, l3midavg_v_s_ratio_cm2, l3midavg_tat_cm2, 
+         l3midavg_skm_volume_cm3, l3midavg_sat_volume_cm3, l3midavg_vat_volume_cm3, 
+         l3midavg_imat_volume_cm3, l3midavg_v_s_ratio_cm3, l3midavg_tat_cm3,
          site) %>% 
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
                  str_replace(., "v_s", "V/S") %>%
@@ -1005,11 +1025,11 @@ tbl_midavg <- data %>%
                 all_stat_cols() ~ "**{level}**, N = {n}")
 
 tbl_mid <- data %>%
-  select(l3mid_skm_area_cm2, l3mid_sat_area_cm2, l3mid_vat_area_cm2, l3mid_imat_area_cm2,
-         l3mid_skm_volume_cm3, l3mid_sat_volume_cm3, l3mid_vat_volume_cm3, l3mid_imat_volume_cm3,
-         l3mid_skm_hu_mean, l3mid_myosteatosis,
-         l3mid_v_s_ratio_cm2, l3mid_v_s_ratio_cm3,
-         l3mid_tat_cm2, l3mid_tat_cm3,
+  select(l3mid_skm_hu_mean, l3mid_myosteatosis,
+         l3mid_skm_area_cm2, l3mid_sat_area_cm2, l3mid_vat_area_cm2, 
+         l3mid_imat_area_cm2,l3mid_v_s_ratio_cm2, l3mid_tat_cm2, 
+         l3mid_skm_volume_cm3, l3mid_sat_volume_cm3, l3mid_vat_volume_cm3, 
+         l3mid_imat_volume_cm3, l3mid_v_s_ratio_cm3, l3mid_tat_cm3,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
                  str_replace(., "v_s", "V/S") %>%
@@ -1027,11 +1047,11 @@ tbl_mid <- data %>%
   add_p() %>% bold_p() %>% add_overall()
 
 tbl_l3startend <- data %>%
-  select(l3start_l3end_skm_area_cm2, l3start_l3end_sat_area_cm2, l3start_l3end_vat_area_cm2, l3start_l3end_imat_area_cm2,
-         l3start_l3end_skm_volume_cm3, l3start_l3end_sat_volume_cm3, l3start_l3end_vat_volume_cm3, l3start_l3end_imat_volume_cm3,
-         l3start_l3end_skm_hu_mean, l3start_l3end_myosteatosis,
-         l3start_l3end_v_s_ratio_cm2, l3start_l3end_v_s_ratio_cm3,
-         l3start_l3end_tat_cm2, l3start_l3end_tat_cm3,
+  select(l3start_l3end_skm_hu_mean, l3start_l3end_myosteatosis,
+         l3start_l3end_skm_area_cm2, l3start_l3end_sat_area_cm2, l3start_l3end_vat_area_cm2, 
+         l3start_l3end_imat_area_cm2, l3start_l3end_v_s_ratio_cm2, l3start_l3end_tat_cm2, 
+         l3start_l3end_skm_volume_cm3, l3start_l3end_sat_volume_cm3, l3start_l3end_vat_volume_cm3, 
+         l3start_l3end_imat_volume_cm3, l3start_l3end_v_s_ratio_cm3, l3start_l3end_tat_cm3,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
                  str_replace(., "v_s", "V/S") %>%
@@ -1054,8 +1074,10 @@ tbl_raw <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 
 ```{r site index}
 tbl_midavg <- data %>%
-  select(l3midavg_smi, l3midavg_sarcopenia, l3midavg_sat_area_cm2_index, l3midavg_vat_area_cm2_index, l3midavg_imat_area_cm2_index,
-         l3midavg_skm_volume_cm3_index, l3midavg_sat_volume_cm3_index, l3midavg_vat_volume_cm3_index, l3midavg_imat_volume_cm3_index,
+  select(l3midavg_smi, l3midavg_sarcopenia, l3midavg_sat_area_cm2_index, l3midavg_vat_area_cm2_index, 
+         l3midavg_imat_area_cm2_index, l3midavg_tat_cm2_index, 
+         l3midavg_skm_volume_cm3_index, l3midavg_sat_volume_cm3_index, l3midavg_vat_volume_cm3_index, 
+         l3midavg_imat_volume_cm3_index, l3midavg_tat_cm3_index,
          site) %>% 
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
                  str_replace(., "smi", "SMI") %>%
@@ -1073,8 +1095,10 @@ tbl_midavg <- data %>%
                 all_stat_cols() ~ "**{level}**, N = {n}")
 
 tbl_mid <- data %>%
-  select(l3mid_smi, l3mid_sarcopenia, l3mid_sat_area_cm2_index, l3mid_vat_area_cm2_index, l3mid_imat_area_cm2_index,
-         l3mid_skm_volume_cm3_index, l3mid_sat_volume_cm3_index, l3mid_vat_volume_cm3_index, l3mid_imat_volume_cm3_index,
+  select(l3mid_smi, l3mid_sarcopenia, l3mid_sat_area_cm2_index, l3mid_vat_area_cm2_index,
+         l3mid_imat_area_cm2_index, l3mid_tat_cm2_index, 
+         l3mid_skm_volume_cm3_index, l3mid_sat_volume_cm3_index, l3mid_vat_volume_cm3_index, 
+         l3mid_imat_volume_cm3_index, l3mid_tat_cm3_index, 
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
                  str_replace(., "smi", "SMI") %>%
@@ -1090,8 +1114,10 @@ tbl_mid <- data %>%
   add_p() %>% bold_p() %>% add_overall()
 
 tbl_l3startend <- data %>%
-  select(l3start_l3end_smi, l3start_l3end_sarcopenia, l3start_l3end_sat_area_cm2_index, l3start_l3end_vat_area_cm2_index, l3start_l3end_imat_area_cm2_index,
-         l3start_l3end_skm_volume_cm3_index, l3start_l3end_sat_volume_cm3_index, l3start_l3end_vat_volume_cm3_index, l3start_l3end_imat_volume_cm3_index,
+  select(l3start_l3end_smi, l3start_l3end_sarcopenia, l3start_l3end_sat_area_cm2_index, l3start_l3end_vat_area_cm2_index,
+         l3start_l3end_imat_area_cm2_index, l3start_l3end_tat_cm2_index, 
+         l3start_l3end_skm_volume_cm3_index, l3start_l3end_sat_volume_cm3_index, l3start_l3end_vat_volume_cm3_index,
+         l3start_l3end_imat_volume_cm3_index, l3start_l3end_tat_cm3_index,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
                  str_replace(., "smi", "SMI") %>%
@@ -1113,9 +1139,7 @@ tbl_index <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 ```{r site prop}
 tbl_midavg <- data %>%
   select(l3midavg_muscle_proportion_cm2, l3midavg_sat_proportion_cm2, l3midavg_vat_proportion_cm2, l3midavg_imat_proportion_cm2,
-         l3midavg_muscle_proportion_cm3, l3midavg_sat_proportion_cm3, l3midavg_vat_proportion_cm3, l3midavg_imat_proportion_cm3,
          l3midavg_sat_adipprop_cm2, l3midavg_vat_adipprop_cm2, l3midavg_imat_adipprop_cm2,
-         l3midavg_sat_adipprop_cm3, l3midavg_vat_adipprop_cm3, l3midavg_imat_proportion_cm3,
          site) %>% 
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
                  str_replace(., "adipprop", "adiposity prop") %>%
@@ -1132,9 +1156,7 @@ tbl_midavg <- data %>%
 
 tbl_mid <- data %>%
   select(l3mid_muscle_proportion_cm2, l3mid_sat_proportion_cm2, l3mid_vat_proportion_cm2, l3mid_imat_proportion_cm2,
-         l3mid_muscle_proportion_cm3, l3mid_sat_proportion_cm3, l3mid_vat_proportion_cm3, l3mid_imat_proportion_cm3,
          l3mid_sat_adipprop_cm2, l3mid_vat_adipprop_cm2, l3mid_imat_adipprop_cm2,
-         l3mid_sat_adipprop_cm3, l3mid_vat_adipprop_cm3, l3mid_imat_adipprop_cm3,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
                  str_replace(., "adipprop", "adiposity prop") %>%
@@ -1149,9 +1171,7 @@ tbl_mid <- data %>%
 
 tbl_l3startend <- data %>%
   select(l3start_l3end_muscle_proportion_cm2, l3start_l3end_sat_proportion_cm2, l3start_l3end_vat_proportion_cm2, l3start_l3end_imat_proportion_cm2,
-         l3start_l3end_muscle_proportion_cm3, l3start_l3end_sat_proportion_cm3, l3start_l3end_vat_proportion_cm3, l3start_l3end_imat_proportion_cm3,
          l3start_l3end_sat_adipprop_cm2, l3start_l3end_vat_adipprop_cm2, l3start_l3end_imat_adipprop_cm2,
-         l3start_l3end_sat_adipprop_cm3, l3start_l3end_vat_adipprop_cm3, l3start_l3end_imat_adipprop_cm3,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
                  str_replace(., "adipprop", "adiposity prop") %>%
@@ -1229,7 +1249,7 @@ gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop, tbl_ascites),
                   row_group.font.weight = "bold",
                   row_group.text_transform = "uppercase",
                   row_group.background.color = "grey")
-# gt_tbl
+gt_tbl
 
 
 # gt_tbl %>% #as_gt(rownames_to_stub = TRUE) %>% 
@@ -1244,59 +1264,59 @@ gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop, tbl_ascites),
 
 
 
-gt_tbl %>%
-  data_color(
-    direction = "row",
-    rows = 1:8,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 17:24,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 27:28,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 31:42,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 51:58,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 67:72,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 79:86,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  )
+# gt_tbl %>%
+#   data_color(
+#     direction = "row",
+#     rows = 1:8,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 17:24,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 27:28,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 31:42,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 51:58,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 67:72,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 79:86,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   )
 ```
 
 ### b. Categorical
 ```{r cat table by site}
 tbl_midavg <- data %>%
-  select(l3midavg_skm_area_cm2_tertcat, l3midavg_sat_area_cm2_tertcat, l3midavg_vat_area_cm2_tertcat, l3midavg_imat_area_cm2_tertcat, 
-         l3midavg_skm_volume_cm3_tertcat, l3midavg_sat_volume_cm3_tertcat, l3midavg_vat_volume_cm3_tertcat, l3midavg_imat_volume_cm3_tertcat,
-         l3midavg_skm_hu_mean_tertcat,
-         l3midavg_v_s_ratio_cm2_tertcat, l3midavg_v_s_ratio_cm3_tertcat,
-         l3midavg_tat_cm2_tertcat, l3midavg_tat_cm3_tertcat,
+  select(l3midavg_skm_hu_mean_tertcat,
+         l3midavg_skm_area_cm2_tertcat, l3midavg_sat_area_cm2_tertcat, l3midavg_vat_area_cm2_tertcat, 
+         l3midavg_imat_area_cm2_tertcat, l3midavg_v_s_ratio_cm2_tertcat, l3midavg_tat_cm2_tertcat, 
+         l3midavg_skm_volume_cm3_tertcat, l3midavg_sat_volume_cm3_tertcat, l3midavg_vat_volume_cm3_tertcat, 
+         l3midavg_imat_volume_cm3_tertcat, l3midavg_v_s_ratio_cm3_tertcat, l3midavg_tat_cm3_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
                  str_replace(., "tertcat", "(cat)") %>%
@@ -1318,11 +1338,11 @@ tbl_midavg <- data %>%
                 all_stat_cols() ~ "**{level}**, N = {n}")
 
 tbl_mid <- data %>%
-  select(l3mid_skm_area_cm2_tertcat, l3mid_sat_area_cm2_tertcat, l3mid_vat_area_cm2_tertcat, l3mid_imat_area_cm2_tertcat, 
-         l3mid_skm_volume_cm3_tertcat, l3mid_sat_volume_cm3_tertcat, l3mid_vat_volume_cm3_tertcat, l3mid_imat_volume_cm3_tertcat,
-         l3mid_skm_hu_mean_tertcat,
-         l3mid_v_s_ratio_cm2_tertcat, l3mid_v_s_ratio_cm3_tertcat,
-         l3mid_tat_cm2_tertcat, l3mid_tat_cm3_tertcat,
+  select(l3mid_skm_hu_mean_tertcat,
+         l3mid_skm_area_cm2_tertcat, l3mid_sat_area_cm2_tertcat, l3mid_vat_area_cm2_tertcat, 
+         l3mid_imat_area_cm2_tertcat, l3mid_v_s_ratio_cm2_tertcat, l3mid_tat_cm2_tertcat, 
+         l3mid_skm_volume_cm3_tertcat, l3mid_sat_volume_cm3_tertcat, l3mid_vat_volume_cm3_tertcat, 
+         l3mid_imat_volume_cm3_tertcat, l3mid_v_s_ratio_cm3_tertcat, l3mid_tat_cm3_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
                  str_replace(., "tertcat", "(cat)") %>%
@@ -1342,11 +1362,11 @@ tbl_mid <- data %>%
   add_p() %>% bold_p() %>% add_overall()
 
 tbl_l3startend <- data %>%
-  select(l3start_l3end_skm_area_cm2_tertcat, l3start_l3end_sat_area_cm2_tertcat, l3start_l3end_vat_area_cm2_tertcat, l3start_l3end_imat_area_cm2_tertcat, 
-         l3start_l3end_skm_volume_cm3_tertcat, l3start_l3end_sat_volume_cm3_tertcat, l3start_l3end_vat_volume_cm3_tertcat, l3start_l3end_imat_volume_cm3_tertcat,
-         l3start_l3end_skm_hu_mean_tertcat,
-         l3start_l3end_v_s_ratio_cm2_tertcat, l3start_l3end_v_s_ratio_cm3_tertcat,
-         l3start_l3end_tat_cm2_tertcat, l3start_l3end_tat_cm3_tertcat,
+  select(l3start_l3end_skm_hu_mean_tertcat,
+         l3start_l3end_skm_area_cm2_tertcat, l3start_l3end_sat_area_cm2_tertcat, l3start_l3end_vat_area_cm2_tertcat,
+         l3start_l3end_imat_area_cm2_tertcat, l3start_l3end_v_s_ratio_cm2_tertcat, l3start_l3end_tat_cm2_tertcat, 
+         l3start_l3end_skm_volume_cm3_tertcat, l3start_l3end_sat_volume_cm3_tertcat, l3start_l3end_vat_volume_cm3_tertcat,
+         l3start_l3end_imat_volume_cm3_tertcat, l3start_l3end_v_s_ratio_cm3_tertcat, l3start_l3end_tat_cm3_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
                  str_replace(., "tertcat", "(cat)") %>%
@@ -1371,8 +1391,10 @@ tbl_raw <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 
 ```{r cat site index}
 tbl_midavg <- data %>%
-  select(l3midavg_smi_tertcat, l3midavg_sat_area_cm2_index_tertcat, l3midavg_vat_area_cm2_index_tertcat, l3midavg_imat_area_cm2_index_tertcat,
-         l3midavg_skm_volume_cm3_index_tertcat, l3midavg_sat_volume_cm3_index_tertcat, l3midavg_vat_volume_cm3_index_tertcat, l3midavg_imat_volume_cm3_index_tertcat,
+  select(l3midavg_smi_tertcat, l3midavg_sat_area_cm2_index_tertcat, l3midavg_vat_area_cm2_index_tertcat,
+         l3midavg_imat_area_cm2_index_tertcat, l3midavg_tat_cm2_index_tertcat, 
+         l3midavg_skm_volume_cm3_index_tertcat, l3midavg_sat_volume_cm3_index_tertcat, l3midavg_vat_volume_cm3_index_tertcat,
+         l3midavg_imat_volume_cm3_index_tertcat, l3midavg_tat_cm3_index_tertcat,
          site) %>% 
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
                  str_replace(., "tertcat", "(cat)") %>%
@@ -1390,8 +1412,10 @@ tbl_midavg <- data %>%
                 all_stat_cols() ~ "**{level}**, N = {n}")
 
 tbl_mid <- data %>%
-  select(l3mid_smi_tertcat, l3mid_sat_area_cm2_index_tertcat, l3mid_vat_area_cm2_index_tertcat, l3mid_imat_area_cm2_index_tertcat,
-         l3mid_skm_volume_cm3_index_tertcat, l3mid_sat_volume_cm3_index_tertcat, l3mid_vat_volume_cm3_index_tertcat, l3mid_imat_volume_cm3_index_tertcat,
+  select(l3mid_smi_tertcat, l3mid_sat_area_cm2_index_tertcat, l3mid_vat_area_cm2_index_tertcat, 
+         l3mid_imat_area_cm2_index_tertcat,l3mid_tat_cm2_index_tertcat, 
+         l3mid_skm_volume_cm3_index_tertcat, l3mid_sat_volume_cm3_index_tertcat, l3mid_vat_volume_cm3_index_tertcat,
+         l3mid_imat_volume_cm3_index_tertcat, l3mid_tat_cm3_index_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
                  str_replace(., "tertcat", "(cat)") %>%
@@ -1407,8 +1431,10 @@ tbl_mid <- data %>%
   add_p() %>% bold_p() %>% add_overall()
 
 tbl_l3startend <- data %>%
-  select(l3start_l3end_smi_tertcat, l3start_l3end_sat_area_cm2_index_tertcat, l3start_l3end_vat_area_cm2_index_tertcat, l3start_l3end_imat_area_cm2_index_tertcat,
-         l3start_l3end_skm_volume_cm3_index_tertcat, l3start_l3end_sat_volume_cm3_index_tertcat, l3start_l3end_vat_volume_cm3_index_tertcat, l3start_l3end_imat_volume_cm3_index_tertcat,
+  select(l3start_l3end_smi_tertcat, l3start_l3end_sat_area_cm2_index_tertcat, l3start_l3end_vat_area_cm2_index_tertcat,
+         l3start_l3end_imat_area_cm2_index_tertcat, l3start_l3end_tat_cm2_index_tertcat,
+         l3start_l3end_skm_volume_cm3_index_tertcat, l3start_l3end_sat_volume_cm3_index_tertcat, l3start_l3end_vat_volume_cm3_index_tertcat,
+         l3start_l3end_imat_volume_cm3_index_tertcat, l3start_l3end_tat_cm3_index_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
                  str_replace(., "tertcat", "(cat)") %>%
@@ -1430,9 +1456,7 @@ tbl_index <- tbl_merge(list(tbl_midavg, tbl_mid, tbl_l3startend),
 ```{r cat site prop}
 tbl_midavg <- data %>%
   select(l3midavg_muscle_proportion_cm2_tertcat, l3midavg_sat_proportion_cm2_tertcat, l3midavg_vat_proportion_cm2_tertcat, l3midavg_imat_proportion_cm2_tertcat,
-         l3midavg_muscle_proportion_cm3_tertcat, l3midavg_sat_proportion_cm3_tertcat, l3midavg_vat_proportion_cm3_tertcat, l3midavg_imat_proportion_cm3_tertcat,
          l3midavg_sat_adipprop_cm2_tertcat, l3midavg_vat_adipprop_cm2_tertcat, l3midavg_imat_adipprop_cm2_tertcat,
-         l3midavg_sat_adipprop_cm3_tertcat, l3midavg_vat_adipprop_cm3_tertcat, l3midavg_imat_adipprop_cm3_tertcat,
          site) %>% 
   `colnames<-`(str_remove(colnames(.), "l3midavg_") %>%
                  str_replace(., "adipprop", "adiposity prop") %>%
@@ -1450,9 +1474,7 @@ tbl_midavg <- data %>%
 
 tbl_mid <- data %>%
   select(l3mid_muscle_proportion_cm2_tertcat, l3mid_sat_proportion_cm2_tertcat, l3mid_vat_proportion_cm2_tertcat, l3mid_imat_proportion_cm2_tertcat,
-         l3mid_muscle_proportion_cm3_tertcat, l3mid_sat_proportion_cm3_tertcat, l3mid_vat_proportion_cm3_tertcat, l3mid_imat_proportion_cm3_tertcat,
          l3mid_sat_adipprop_cm2_tertcat, l3mid_vat_adipprop_cm2_tertcat, l3mid_imat_adipprop_cm2_tertcat,
-         l3mid_sat_adipprop_cm3_tertcat, l3mid_vat_adipprop_cm3_tertcat, l3mid_imat_adipprop_cm3_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3mid_") %>%
                  str_replace(., "adipprop", "adiposity prop") %>%
@@ -1468,9 +1490,7 @@ tbl_mid <- data %>%
 
 tbl_l3startend <- data %>%
   select(l3start_l3end_muscle_proportion_cm2_tertcat, l3start_l3end_sat_proportion_cm2_tertcat, l3start_l3end_vat_proportion_cm2_tertcat, l3start_l3end_imat_proportion_cm2_tertcat,
-         l3start_l3end_muscle_proportion_cm3_tertcat, l3start_l3end_sat_proportion_cm3_tertcat, l3start_l3end_vat_proportion_cm3_tertcat, l3start_l3end_imat_proportion_cm3_tertcat,
          l3start_l3end_sat_adipprop_cm2_tertcat, l3start_l3end_vat_adipprop_cm2_tertcat, l3start_l3end_imat_adipprop_cm2_tertcat,
-         l3start_l3end_sat_adipprop_cm3_tertcat, l3start_l3end_vat_adipprop_cm3_tertcat, l3start_l3end_imat_adipprop_cm3_tertcat,
          site) %>%
   `colnames<-`(str_remove(colnames(.), "l3start_l3end_") %>%
                  str_replace(., "adipprop", "adiposity prop") %>%
@@ -1500,44 +1520,44 @@ gt_tbl <- tbl_stack(list(tbl_raw, tbl_index, tbl_prop),
                   row_group.font.weight = "bold",
                   row_group.text_transform = "uppercase",
                   row_group.background.color = "grey")
-# gt_tbl
-gt_tbl %>%
-  data_color(
-    direction = "row",
-    rows = 1:20,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 41:50,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 56:60,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 66:85,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 106:125,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  ) %>%
-  data_color(
-    direction = "row",
-    rows = 146:160,
-    # rows = ends_with("SMI"),
-    palette = "lightblue", na_color = "lightblue"
-  )
+gt_tbl
+# gt_tbl %>%
+#   data_color(
+#     direction = "row",
+#     rows = 1:20,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 41:50,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 56:60,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 66:85,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 106:125,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   ) %>%
+#   data_color(
+#     direction = "row",
+#     rows = 146:160,
+#     # rows = ends_with("SMI"),
+#     palette = "lightblue", na_color = "lightblue"
+#   )
 ```
 
 There is some differences between Moffitt and Roswell body composition data for:
@@ -1585,12 +1605,11 @@ midavg_data %>%
                           levels = c("vat_area_cm2_index", "sat_area_cm2_index", "imat_area_cm2_index",
                                      "vat_volume_cm3_index", "sat_volume_cm3_index", "imat_volume_cm3_index",
                                      "vat_proportion_cm2", "sat_proportion_cm2", "imat_proportion_cm2",
-                                     "vat_proportion_cm3", "sat_proportion_cm3", "imat_proportion_cm3",
                                      "vat_adipprop_cm2", "sat_adipprop_cm2", "imat_adipprop_cm2",
-                                     "vat_adipprop_cm3", "sat_adipprop_cm3", "imat_adipprop_cm3",
-                                     "v_s_ratio_cm2", "tat_cm2", "smi",
-                                     "v_s_ratio_cm3", "tat_cm3", "skm_volume_cm3_index", 
-                                     "skm_hu_mean", "muscle_proportion_cm2", "muscle_proportion_cm3"
+                                     "v_s_ratio_cm2", "tat_cm2", "tat_cm2_index", 
+                                     "v_s_ratio_cm3", "tat_cm3", "tat_cm3_index", 
+                                     "smi", "muscle_proportion_cm2", "skm_hu_mean", 
+                                     "skm_volume_cm3_index"
                                      ))) %>%
   mutate(bmi_cat = factor(bmi_cat, levels = c("≥30 kg/m²", "25-30 kg/m²", "<25 kg/m²"))) %>%
   ggplot(aes(x = bmi_cat, y = value, color = bmi_cat))+
@@ -1654,9 +1673,9 @@ ggcorrplot(midavg_mat, #hc.order = TRUE,
            digits = 2
 )+
   # geom_abline(intercept = 0, slope = 1)+
-  geom_rect(aes(xmin = 29.6, xmax = 30.5, ymin = 0.5, ymax = 21.5), fill = "transparent", color = "orange")+
-  geom_rect(aes(xmin = 21.5, xmax = 29.4, ymin = 0.5, ymax = 21.5), fill = "transparent", color = "orchid")+
-  geom_rect(aes(xmin = 21.5, xmax = 29.4, ymin = 19.5, ymax = 20.5), fill = "transparent", color = "purple")+
+  geom_rect(aes(xmin = 27.6, xmax = 28.5, ymin = 0.5, ymax = 19.5), fill = "transparent", color = "orange")+
+  geom_rect(aes(xmin = 19.5, xmax = 27.4, ymin = 0.5, ymax = 19.5), fill = "transparent", color = "orchid")+
+  geom_rect(aes(xmin = 19.5, xmax = 27.4, ymin = 17.5, ymax = 18.5), fill = "transparent", color = "purple")+
   theme(legend.position = "bottom")
 ```
 
@@ -2310,9 +2329,9 @@ ggsurvplot(survfit(Surv(os_time_from_dx_months, event = os_event) ~
 <br>
 
 # IV. Survival analysis - limit to l3midavg data and actual muscle and adiposity body composition features
-## 1. HR Overall
-```{r HR}
-tbl_1 <- tbl_uvregression(
+## 1. HR UVA
+```{r HR UVA}
+tbl_uva1 <- tbl_uvregression(
   data,
   method = coxph,
   y = Surv(time = os_time_from_dx_months, event = os_event),
@@ -2328,27 +2347,6 @@ tbl_1 <- tbl_uvregression(
   bold_p(t = .05) %>%
   add_nevent(location = "level") %>% add_n(location = "level") %>%
   bold_labels() %>% italicize_levels()
-tbl_2 <-
-  coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage,
-        data = data) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-tbl_3 <-
-  coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + site +
-          debulking,
-        data = data) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-
-tbl_clin <- tbl_merge(list(tbl_1, tbl_2, tbl_3),
-                      tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
-
 
 tbl_sdhr <- tbl_uvregression(
   data,
@@ -2359,7 +2357,8 @@ tbl_sdhr <- tbl_uvregression(
               "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
               "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
               "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
-              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr"
+              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
+              "l3midavg_tat_cm2_sdhr", "l3midavg_tat_cm3_sdhr"
               ),
   # pvalue_fun = label_style_pvalue(digits = 2)
   ) %>%
@@ -2396,7 +2395,8 @@ tbl_index <- tbl_uvregression(
               "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
               "l3midavg_imat_area_cm2_index_sdhr",
               "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
-              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr"
+              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
+              "l3midavg_tat_cm2_index_sdhr", "l3midavg_tat_cm3_index_sdhr"
               ),
   # pvalue_fun = label_style_pvalue(digits = 2)
   ) %>%
@@ -2411,12 +2411,8 @@ tbl_prop <- tbl_uvregression(
   exponentiate = TRUE,
   include = c("l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
               "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
-              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
-              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
               "l3midavg_sat_adipprop_cm2_sdhr", 
-              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
-              "l3midavg_sat_adipprop_cm3_sdhr", 
-              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr"
+              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr"
               ),
   # pvalue_fun = label_style_pvalue(digits = 2)
   ) %>%
@@ -2429,7 +2425,7 @@ tbl_cat <- tbl_uvregression(
   method = coxph,
   y = Surv(time = os_time_from_dx_months, event = os_event),
   exponentiate = TRUE,
-  include = c("ascites_cutpoint_cat",
+  include = c(#"ascites_cutpoint_cat",
               starts_with("l3midavg_") & ends_with("_tertcat")
               ),
   # pvalue_fun = label_style_pvalue(digits = 2)
@@ -2437,25 +2433,21 @@ tbl_cat <- tbl_uvregression(
   bold_p(t = .05) %>%
   add_nevent(location = "level") %>% add_n(location = "level") %>%
   bold_labels() %>% italicize_levels()
-
-# print("PH assumption")
-# coxph(Surv(time = data$os_time_from_dx_months,
-#              event = data$os_event) ~ age_at_diagnosis + tnm_cs_mixed_group_stage + debulking,
-#         data =  data)  %>%
-#   cox.zph()
 ```
 
-```{r gt HR survival}
-merge_tbl <- tbl_stack(list(tbl_1, tbl_sdhr, tbl_raw, tbl_index, tbl_prop, tbl_cat)#, 
-                    # group_header = c("Clinical", "1-SD normalized features",
-                    #                  "Raw features", "Indexed features", 
-                    #                  "Tissue proportion",
-                    #                  "ALL categorical")
-                    )
+```{r gt UVA HR survival}
+# merge_tbl <- 
+  tbl_stack(list(tbl_uva1, tbl_sdhr, tbl_raw, tbl_index, tbl_prop, tbl_cat), 
+                       
+                    group_header = c("Clinical", "1-SD normalized features",
+                                     "Raw features", "Indexed features",
+                                     "Tissue proportion",
+                                     "ALL categorical")
+                    ) %>% 
 
-gt_tbl <-
-  tbl_merge(list(merge_tbl, tbl_2, tbl_3), 
-                    tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**")) %>%
+# gt_tbl <-
+#   tbl_merge(list(merge_tbl, tbl_2, tbl_3), 
+#                     tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**")) %>%
   # add_variable_group_header(
   #   header = "Clinical",
   #   variables = "age_at_diagnosis",
@@ -2500,25 +2492,27 @@ gt_tbl <-
                   row_group.font.weight = "bold",
                   row_group.text_transform = "uppercase",
                   row_group.background.color = "grey")
-gt_tbl %>% 
-    tab_row_group(
-    label = "ALL categorical", rows = 92:204
-  ) %>% 
-    tab_row_group(
-    label = "1-SD normalized tissue proportion", rows = 78:91
-  ) %>% 
-    tab_row_group(
-    label = "1-SD normalized indexed features", rows = 67:77
-  ) %>% 
-    tab_row_group(
-    label = "Raw features", rows = 54:66
-  ) %>% 
-  tab_row_group(
-    label = "1-SD normalized features", rows = 42:53
-  ) %>% 
-  tab_row_group(
-    label = "Clinical", rows = 1:41
-  )
+# gt_tbl %>% 
+#     tab_row_group(
+#     label = "ALL categorical", rows = 92:204
+#   ) %>% 
+#     tab_row_group(
+#     label = "1-SD normalized tissue proportion", rows = 78:91
+#   ) %>% 
+#     tab_row_group(
+#     label = "1-SD normalized indexed features", rows = 67:77
+#   ) %>% 
+#     tab_row_group(
+#     label = "Raw features", rows = 54:66
+#   ) %>% 
+#   tab_row_group(
+#     label = "1-SD normalized features", rows = 42:53
+#   ) %>% 
+#   tab_row_group(
+#     label = "Clinical", rows = 1:41
+#   )
+
+
   # data_color(
   #   columns = everything(),
   #   rows = 1:20,
@@ -2551,383 +2545,1624 @@ gt_tbl %>%
   # )
 ```
 
+## 1. HR MVA
+### Clinical only
+Age, stage, study site, and debulking status are associeted with survival.
+```{r HR MVA}
+tbl_2 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          debulking,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+
+tbl_merge(list(tbl_2, tbl_3),
+                      tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+
+
+# print("PH assumption")
+# coxph(Surv(time = data$os_time_from_dx_months,
+#              event = data$os_event) ~ age_at_diagnosis + site + tnm_cs_mixed_group_stage + debulking,
+#         data =  data)  %>%
+#   cox.zph()
+```
+
+
+
 ### Multivariable for muscle quality
+Poor muscle quality (low muscle HU or Myosteatosis) are associated with poor survival (trend for continuous muscle HU but significant association for the Myosteatosis category)
 ```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_skm_hu_mean_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_skm_hu_mean_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
 tbl_1 <-
-  coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_skm_hu_mean_sdhr,
-        data = data) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-tbl_2 <-
-  coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_myosteatosis,
-        data = data) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-tbl_merge(list(tbl_1, tbl_2),
-                      tab_spanner = c("**Muscle quality**", "**Myosteatosis**"))
-```
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
 
-### Multivariable for proportion
-```{r}
-tbl_1 <-
+tbl_clin <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_muscle_proportion_cm2_sdhr,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_myosteatosis,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_myosteatosis,
         data = data) %>%
   tbl_regression(exponentiate = TRUE) %>%
   bold_p(t = 0.05) %>%
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2),
+                      group_header = c("Muscle quality", "Myosteatosis")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+### Multivariable for Muscle, VAT, SAT, IMAT, V/S, and TAT continuous per 1-SD 
+There is a trend toward poorer survival for higher IMAT when additionally adjusted by debulking.   
+In the "volume" section IMAT is significantly associated in both models.   
+No associations for V/S ot TAT.
+
+#### Area
+```{r}
+tbl_clin <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_vat_proportion_cm2_sdhr,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_skm_area_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_skm_area_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_area_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_area_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_area_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_area_cm2_sdhr,
         data = data) %>%
   tbl_regression(exponentiate = TRUE) %>%
   bold_p(t = 0.05) %>%
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_sat_proportion_cm2_sdhr,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_area_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_area_cm2_sdhr,
         data = data) %>%
   tbl_regression(exponentiate = TRUE) %>%
   bold_p(t = 0.05) %>%
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_imat_proportion_cm2_sdhr,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_v_s_ratio_cm2_sdhr,
         data = data) %>%
   tbl_regression(exponentiate = TRUE) %>%
   bold_p(t = 0.05) %>%
   add_nevent(location = "level") %>% add_n(location = "level")
-
-tbl_merge(list(tbl_1, tbl_2, tbl_3, tbl_4),
-                      tab_spanner = c("**Muscle proportion**", "**VAT proportion**", "**SAT proportion**", "**IMAT proportion**"))
-```
-
-```{r}
-tbl_2 <-
+tbl_deb <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_vat_adipprop_cm2_sdhr,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_v_s_ratio_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_5 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_5, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "V/S", "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+#### Volume
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_skm_volume_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_skm_volume_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_volume_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_volume_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_volume_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_volume_cm3_sdhr,
         data = data) %>%
   tbl_regression(exponentiate = TRUE) %>%
   bold_p(t = 0.05) %>%
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_sat_adipprop_cm2_sdhr,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_volume_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_volume_cm3_sdhr,
         data = data) %>%
   tbl_regression(exponentiate = TRUE) %>%
   bold_p(t = 0.05) %>%
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + l3midavg_imat_adipprop_cm2_sdhr,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_v_s_ratio_cm3_sdhr,
         data = data) %>%
   tbl_regression(exponentiate = TRUE) %>%
   bold_p(t = 0.05) %>%
   add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_v_s_ratio_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_5 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
 
-tbl_merge(list(tbl_2, tbl_3, tbl_4),
-                      tab_spanner = c("**VAT Adiposity proportion**", "**SAT Adiposity proportion**", "**IMAT Adiposity proportion**"))
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm3_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_5, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "V/S", "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+### Multivariable for height indexed Muscle, VAT, SAT, IMAT, V/S, and TAT continuous per 1-SD  
+No association using the area features.   
+The association with volume IMAT is significant for the height indexed feature in the non-debulking adjusted model.   
+This association is attenuated in the debulking adjusted model.   
+No associations for TAT.
+
+#### Area
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_smi_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_smi_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_area_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_area_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_area_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_area_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_area_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_area_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm2_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+#### Volume
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_skm_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_skm_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_volume_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm3_index_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+### Multivariable for proportion per 1-SD 
+No association observed for the proportion and the adiposity proportion features.
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_muscle_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_muscle_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_proportion_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+### Multivariable for Adiposity proportion per 1-SD 
+None are significant
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_adipprop_cm2_sdhr,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_2, tbl_3, tbl_4),
+                      group_header = c("VAT",
+                                       "SAT", "IMAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+### Multivariable for Categorical
+<!-- #### Multivariable for muscle quality -->
+<!-- ```{r} -->
+<!-- tbl_clin <- -->
+<!--   coxph(Surv(time = data$os_time_from_dx_months, -->
+<!--              event = data$os_event) ~ age_at_diagnosis + site + -->
+<!--           tnm_cs_mixed_group_stage +  -->
+<!--           l3midavg_skm_hu_mean_tertcat, -->
+<!--         data = data) %>% -->
+<!--   tbl_regression(exponentiate = TRUE) %>% -->
+<!--   bold_p(t = 0.05) %>% -->
+<!--   add_nevent(location = "level") %>% add_n(location = "level") -->
+<!-- tbl_deb <- -->
+<!--   coxph(Surv(time = data$os_time_from_dx_months, -->
+<!--              event = data$os_event) ~ age_at_diagnosis + site + -->
+<!--           tnm_cs_mixed_group_stage + debulking +  -->
+<!--           l3midavg_skm_hu_mean_tertcat, -->
+<!--         data = data) %>% -->
+<!--   tbl_regression(exponentiate = TRUE) %>% -->
+<!--   bold_p(t = 0.05) %>% -->
+<!--   add_nevent(location = "level") %>% add_n(location = "level") -->
+<!-- tbl_merge(list(tbl_clin, tbl_deb),  -->
+<!--           tab_spanner = c("**Multivariable 1**", "**Debulking**")) -->
+
+
+
+<!-- # tbl_stack(list(tbl_1, tbl_2), -->
+<!-- #                       group_header = c("Muscle quality")) %>%  -->
+<!-- #   as_gt(rownames_to_stub = TRUE -->
+<!-- #   ) %>% -->
+<!-- #   gt::tab_options(row_group.border.top.color = "black", -->
+<!-- #                   row_group.border.top.width = 3, -->
+<!-- #                   row_group.border.bottom.color = "darkgrey", -->
+<!-- #                   row_group.font.size = 15, -->
+<!-- #                   row_group.font.weight = "bold", -->
+<!-- #                   row_group.text_transform = "uppercase", -->
+<!-- #                   row_group.background.color = "grey") -->
+<!-- ``` -->
+<!-- <br> -->
+
+#### Multivariable for Muscle, VAT, SAT, IMAT, V/S, and TAT categorical
+For area and volume features :   
+Medium tertile category for SAT and IMAT show a better survival whereas High category have worse survival but the association are not significant (pvalue > 0.2).
+Non-linear relationship (but not significant) for V/S and TAT in the debulking adjusted model... I am not sure if it is worth mentioning with these HR...?   
+
+For volume feature for muscle mass :   
+This is the only interesting result while looking at muscle mass. It shows a worse survival for the Medium and High categories of volume muscle mass.   
+
+##### Area
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_skm_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_skm_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_area_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_v_s_ratio_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_v_s_ratio_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_5 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_5, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "V/S", "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+##### Volume
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_skm_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_skm_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_volume_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_v_s_ratio_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_v_s_ratio_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_5 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm3_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_5, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "V/S", "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+#### Multivariable for height indexed Muscle, VAT, SAT, IMAT, and TAT categorical
+Non-linear relationship (but not significant) for IMAT (area) and VAT, SAT, IMAT, and TAT (volume).
+
+##### Area
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_smi_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_smi_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_area_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_area_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_area_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_area_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_area_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_area_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm2_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+##### Volume
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_skm_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_skm_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_volume_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_tat_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_tat_cm3_index_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_6 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4, tbl_6),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT", 
+                                       "TAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+#### Multivariable for proportion
+Medium and High category for Muscle mass proportion shows a better survival. Seems that Muscle mass needs to be put in the context of other tissue proportion to be meaningful...   
+Medium and High category for VAT proportion shows a better survival which is attenuated in the debulking adjusted model.   
+Medium and High category for SAT and IMAT proportion shows a worse survival but not significant.   
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_muscle_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_muscle_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_1 <-
+  tbl_merge(list(tbl_clin, tbl_deb), 
+                    tab_spanner = c("**Multivariable 1**", "**Debulking**"))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_proportion_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_1, tbl_2, tbl_3, tbl_4),
+                      group_header = c("Muscle", "VAT",
+                                       "SAT", "IMAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
+```
+<br>
+
+#### Multivariable for Adiposity proportion
+Comparing to the overall proportion results above, if looking at the adiposity proportion :   
+VAT adiposity proportion association are even more attenuated.   
+Medium and High category for SAT and IMAT proportion shows a worse survival but not significant (or trend).   
+```{r}
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_vat_adipprop_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_vat_adipprop_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_2 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_sat_adipprop_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_sat_adipprop_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_3 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_clin <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + 
+          l3midavg_imat_adipprop_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_deb <-
+  coxph(Surv(time = data$os_time_from_dx_months,
+             event = data$os_event) ~ age_at_diagnosis + site +
+          tnm_cs_mixed_group_stage + debulking + 
+          l3midavg_imat_adipprop_cm2_tertcat,
+        data = data) %>%
+  tbl_regression(exponentiate = TRUE) %>%
+  bold_p(t = 0.05) %>%
+  add_nevent(location = "level") %>% add_n(location = "level")
+tbl_4 <-
+  tbl_merge(list(tbl_clin, tbl_deb))
+
+tbl_stack(list(tbl_2, tbl_3, tbl_4),
+                      group_header = c("VAT",
+                                       "SAT", "IMAT")) %>% 
+  as_gt(rownames_to_stub = TRUE
+  ) %>%
+  gt::tab_options(row_group.border.top.color = "black",
+                  row_group.border.top.width = 3,
+                  row_group.border.bottom.color = "darkgrey",
+                  row_group.font.size = 15,
+                  row_group.font.weight = "bold",
+                  row_group.text_transform = "uppercase",
+                  row_group.background.color = "grey")
 ```
 <br>
 
 
 
-## 2. Startitied by first line therapy
-```{r Stratified treatment}
-data_neo <- data %>%
-  filter(treatment_type == "Upfront chemo")
-
-data_surg <- data %>%
-  filter(treatment_type == "Upfront surgery")
-```
 
 
-### Upfront Chemo
-```{r HR chemo}
-# table(data_neo$l3midavg_sarcopenia, data_neo$os_event)
-# print("there is only 1 level for sarcopenia. Exclude from the model.")
-tbl_1 <- tbl_uvregression(
-  data_neo,
-  method = coxph,
-  y = Surv(time = os_time_from_dx_months, event = os_event),
-  exponentiate = TRUE,
-  include = c("age_at_diagnosis", 
-              "tnm_cs_mixed_group_stage", 
-              "site", "debulking", 
-              "raceeth", "bmi_cat",
-              starts_with("predx_"),
-              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
-              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
-              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
-              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
-              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              # "l3midavg_skm_hu_mean",
-              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
-              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
-              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi_sdhr", "l3midavg_sarcopenia",
-              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
-              "l3midavg_imat_area_cm2_index_sdhr",
-              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
-              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
-              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
-              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
-              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
-              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
-              "l3midavg_sat_adipprop_cm2_sdhr", 
-              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
-              "l3midavg_sat_adipprop_cm3_sdhr", 
-              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
-              "ascites_cutpoint_cat",
-              starts_with("l3midavg_") & ends_with("_tertcat")),
-  # pvalue_fun = label_style_pvalue(digits = 2)
-) %>%
-  bold_p(t = .05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl_2 <-
-  coxph(Surv(time = data_neo$os_time_from_dx_months,
-             event = data_neo$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage +
-          debulking,
-        data = data_neo) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-tbl_3 <-
-  coxph(Surv(time = data_neo$os_time_from_dx_months,
-             event = data_neo$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + site +
-          debulking,
-        data = data_neo) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
 
-tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
-```
 
-### Upfront Surgery
-```{r HR surg}
-# table(data_surg$l3midavg_sarcopenia, data_surg$os_event)
-tbl_1 <- tbl_uvregression(
-  data_surg,
-  method = coxph,
-  y = Surv(time = os_time_from_dx_months, event = os_event),
-  exponentiate = TRUE,
-  include = c("age_at_diagnosis", 
-              "tnm_cs_mixed_group_stage", 
-              "site", "debulking", 
-              "raceeth", "bmi_cat",
-              starts_with("predx_"),
-              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
-              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
-              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
-              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
-              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              # "l3midavg_skm_hu_mean",
-              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
-              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
-              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi_sdhr", "l3midavg_sarcopenia",
-              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
-              "l3midavg_imat_area_cm2_index_sdhr",
-              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
-              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
-              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
-              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
-              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
-              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
-              "l3midavg_sat_adipprop_cm2_sdhr", 
-              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
-              "l3midavg_sat_adipprop_cm3_sdhr", 
-              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
-              "ascites_cutpoint_cat",
-              starts_with("l3midavg_") & ends_with("_tertcat")),
-  # pvalue_fun = label_style_pvalue(digits = 2)
-) %>%
-  bold_p(t = .05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl_2 <-
-  coxph(Surv(time = data_surg$os_time_from_dx_months,
-             event = data_surg$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage,
-        data = data_surg) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-tbl_3 <-
-  coxph(Surv(time = data_surg$os_time_from_dx_months,
-             event = data_surg$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + site +
-          debulking,
-        data = data_surg) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
 
-tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
-```
 
-## 2. Startitied by Sarcopenia presence in L3 migavg region
-```{r Stratified Sarcopenia}
-data_sarcopenia <- data %>%
-  filter(l3midavg_sarcopenia == "<38.5 : sarcopenia")
 
-data_asc_absence <- data %>%
-  filter(l3midavg_sarcopenia == "≥38.5")
-```
 
-### Presence Sarcopenia
-```{r HR stratified yes sarcopenia}
-tbl_1 <- tbl_uvregression(
-  data_sarcopenia,
-  method = coxph,
-  y = Surv(time = os_time_from_dx_months, event = os_event),
-  exponentiate = TRUE,
-  include = c("age_at_diagnosis", 
-              "tnm_cs_mixed_group_stage", 
-              "site", "debulking", 
-              "raceeth", "treatment_type", "bmi_cat",
-              starts_with("predx_"),
-              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
-              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
-              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
-              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
-              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              # "l3midavg_skm_hu_mean",
-              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
-              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
-              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi_sdhr", 
-              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
-              "l3midavg_imat_area_cm2_index_sdhr",
-              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
-              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
-              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
-              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
-              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
-              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
-              "l3midavg_sat_adipprop_cm2_sdhr", 
-              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
-              "l3midavg_sat_adipprop_cm3_sdhr", 
-              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
-              "ascites_cutpoint_cat",
-              starts_with("l3midavg_") & ends_with("_tertcat")),
-  # pvalue_fun = label_style_pvalue(digits = 2)
-) %>%
-  bold_p(t = .05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-tbl_2 <-
-  coxph(Surv(time = data_sarcopenia$os_time_from_dx_months,
-             event = data_sarcopenia$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage,
-        data = data_sarcopenia) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-tbl_3 <-
-  coxph(Surv(time = data_sarcopenia$os_time_from_dx_months,
-             event = data_sarcopenia$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + site +
-          debulking,
-        data = data_sarcopenia) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
 
-tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
-```
 
-### Absence Sarcopenia
-```{r HR stratified no sarcopenia}
-tbl_1 <- tbl_uvregression(
-  data_asc_absence,
-  method = coxph,
-  y = Surv(time = os_time_from_dx_months, event = os_event),
-  exponentiate = TRUE,
-  include = c("age_at_diagnosis", 
-              "tnm_cs_mixed_group_stage", 
-              "site", "debulking", 
-              "raceeth", "treatment_type", "bmi_cat",
-              starts_with("predx_"),
-              "l3midavg_skm_hu_mean_sdhr", "l3midavg_myosteatosis",
-              "l3midavg_skm_area_cm2_sdhr", "l3midavg_vat_area_cm2_sdhr", 
-              "l3midavg_sat_area_cm2_sdhr", "l3midavg_imat_area_cm2_sdhr",
-              "l3midavg_skm_volume_cm3_sdhr", "l3midavg_vat_volume_cm3_sdhr", 
-              "l3midavg_sat_volume_cm3_sdhr", "l3midavg_imat_volume_cm3_sdhr",
-              # "l3midavg_skm_hu_mean",
-              # "l3midavg_skm_area_cm2", "l3midavg_vat_area_cm2", 
-              # "l3midavg_sat_area_cm2", "l3midavg_imat_area_cm2",
-              # "l3midavg_skm_volume_cm3", "l3midavg_vat_volume_cm3", 
-              # "l3midavg_sat_volume_cm3", "l3midavg_imat_volume_cm3",
-              "l3midavg_v_s_ratio_cm2", "l3midavg_v_s_ratio_cm3",
-              "l3midavg_tat_cm2", "l3midavg_tat_cm3",
-              "l3midavg_smi_sdhr", 
-              "l3midavg_sat_area_cm2_index_sdhr", "l3midavg_vat_area_cm2_index_sdhr", 
-              "l3midavg_imat_area_cm2_index_sdhr",
-              "l3midavg_skm_volume_cm3_index_sdhr", "l3midavg_sat_volume_cm3_index_sdhr", 
-              "l3midavg_vat_volume_cm3_index_sdhr", "l3midavg_imat_volume_cm3_index_sdhr",
-              "l3midavg_muscle_proportion_cm2_sdhr", "l3midavg_sat_proportion_cm2_sdhr", 
-              "l3midavg_vat_proportion_cm2_sdhr", "l3midavg_imat_proportion_cm2_sdhr",
-              "l3midavg_muscle_proportion_cm3_sdhr", "l3midavg_sat_proportion_cm3_sdhr", 
-              "l3midavg_vat_proportion_cm3_sdhr", "l3midavg_imat_proportion_cm3_sdhr",
-              "l3midavg_sat_adipprop_cm2_sdhr", 
-              "l3midavg_vat_adipprop_cm2_sdhr", "l3midavg_imat_adipprop_cm2_sdhr",
-              "l3midavg_sat_adipprop_cm3_sdhr", 
-              "l3midavg_vat_adipprop_cm3_sdhr", "l3midavg_imat_adipprop_cm3_sdhr",
-              "ascites_cutpoint_cat",
-              starts_with("l3midavg_") & ends_with("_tertcat")),
-  # pvalue_fun = label_style_pvalue(digits = 2)
-) %>%
-  bold_p(t = .05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level") %>%
-  bold_labels() %>% italicize_levels()
-
-tbl_2 <-
-  coxph(Surv(time = data_asc_absence$os_time_from_dx_months,
-             event = data_asc_absence$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage,
-        data = data_asc_absence) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-tbl_3 <-
-  coxph(Surv(time = data_asc_absence$os_time_from_dx_months,
-             event = data_asc_absence$os_event) ~ age_at_diagnosis +
-          tnm_cs_mixed_group_stage + site +
-          debulking,
-        data = data_asc_absence) %>%
-  tbl_regression(exponentiate = TRUE) %>%
-  bold_p(t = 0.05) %>%
-  add_nevent(location = "level") %>% add_n(location = "level")
-
-tbl_merge(list(tbl_1, tbl_2, tbl_3), tab_spanner = c("**Univariable**", "**Multivariable 1**", "**Debulking**"))
-```
 
 # V. Roswell analyses
 ## 1. Phenotype categories
@@ -3029,7 +4264,7 @@ tbl_1 <- tbl_uvregression(
 
 tbl_2 <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
+             event = data$os_event) ~ age_at_diagnosis + site +
           tnm_cs_mixed_group_stage +
           debulking + imat_phenotype + sat_phenotype + vat_phenotype + tat_phenotype,
         data = data) %>%
@@ -3039,7 +4274,7 @@ tbl_2 <-
 
 # tbl_3 <-
 #   coxph(Surv(time = data$os_time_from_dx_months,
-#              event = data$os_event) ~ age_at_diagnosis +
+#              event = data$os_event) ~ age_at_diagnosis + site +
 #           tnm_cs_mixed_group_stage +
 #           debulking + imat_phenotype + sat_phenotype + vat_phenotype + tat_phenotype +
 #           ascites_cutpoint_cat,
@@ -3054,7 +4289,7 @@ Multivariable for each phenotype
 ```{r}
 tbl_1 <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
+             event = data$os_event) ~ age_at_diagnosis + site +
           tnm_cs_mixed_group_stage +
           debulking + imat_phenotype,
         data = data) %>%
@@ -3063,7 +4298,7 @@ tbl_1 <-
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_2 <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
+             event = data$os_event) ~ age_at_diagnosis + site +
           tnm_cs_mixed_group_stage +
           debulking + sat_phenotype,
         data = data) %>%
@@ -3072,7 +4307,7 @@ tbl_2 <-
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_3 <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
+             event = data$os_event) ~ age_at_diagnosis + site +
           tnm_cs_mixed_group_stage +
           debulking + vat_phenotype,
         data = data) %>%
@@ -3081,7 +4316,7 @@ tbl_3 <-
   add_nevent(location = "level") %>% add_n(location = "level")
 tbl_4 <-
   coxph(Surv(time = data$os_time_from_dx_months,
-             event = data$os_event) ~ age_at_diagnosis +
+             event = data$os_event) ~ age_at_diagnosis + site +
           tnm_cs_mixed_group_stage +
           debulking + tat_phenotype,
         data = data) %>%
